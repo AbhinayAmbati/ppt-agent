@@ -5,13 +5,10 @@ import { RegisterForm } from '@/components/auth/RegisterForm';
 
 export default function RegisterPage() {
   return (
-    <div className="min-h-screen flex flex-col pt-[15vh] items-center bg-background px-4">
+    <div className="min-h-screen flex flex-col pt-[15vh] items-center px-4">
       <div className="w-full max-w-[400px]">
         {/* Header */}
         <div className="text-center mb-10">
-          <Link href="/" className="inline-block mb-8">
-            <span className="font-serif text-2xl font-medium tracking-tight">Auto-PPT</span>
-          </Link>
           <h1 className="text-2xl font-semibold mb-2 tracking-tight">Create an account</h1>
           <p className="text-muted-foreground text-sm">Join us and start generating</p>
         </div>

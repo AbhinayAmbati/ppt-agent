@@ -3,6 +3,7 @@
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { PublicNavbar } from '@/components/layout/PublicNavbar';
 
 export default function AuthLayout({
   children,
@@ -29,5 +30,16 @@ export default function AuthLayout({
     );
   }
 
-  return children;
+  return (
+    <div className="min-h-screen bg-background flex flex-col font-sans relative overflow-hidden">
+      {/* Subtle background glow for premium feel */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-orange-100/40 dark:bg-orange-900/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-100/40 dark:bg-blue-900/10 rounded-full blur-3xl pointer-events-none" />
+
+      <PublicNavbar />
+      <main className="flex-1 w-full relative z-10 flex flex-col">
+        {children}
+      </main>
+    </div>
+  );
 }

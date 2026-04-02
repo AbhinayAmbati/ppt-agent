@@ -5,11 +5,12 @@ from sqlalchemy.orm import Session, sessionmaker
 from pydantic import BaseModel
 from typing import Optional
 import logging
+from datetime import datetime, timedelta
 
 from models import Base, User, Session as DBSession, PPTJob, engine, init_db
 from db import hash_password, verify_password
 from auth import create_access_token, verify_access_token
-from auth.schemas import TokenResponse as Token
+
 from agent_engine import init_agent, agent_engine
 from mcp_client import mcp_client
 
@@ -74,7 +75,13 @@ async def register(request: RegisterRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
     
-    return {"status": "success", "user_id": user.id}
+    token = create_access_token(user.id)
+    expires = datetime.utcnow() + timedelta(hours=24)
+    session = DBSession(user_id=user.id, token=token, expires_at=expires)
+    db.add(session)
+    db.commit()
+    
+    return {"access_token": token, "token_type": "bearer", "user_id": user.id}
 
 @app.post("/login")
 async def login(request: LoginRequest, db: Session = Depends(get_db)):
@@ -83,11 +90,12 @@ async def login(request: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
     token = create_access_token(user.id)
-    session = DBSession(user_id=user.id, token=token, expires_at=None)
+    expires = datetime.utcnow() + timedelta(hours=24)
+    session = DBSession(user_id=user.id, token=token, expires_at=expires)
     db.add(session)
     db.commit()
     
-    return Token(access_token=token, token_type="bearer")
+    return {"access_token": token, "token_type": "bearer", "user_id": user.id}
 
 async def get_current_user(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
     if not authorization or not authorization.startswith("Bearer "):

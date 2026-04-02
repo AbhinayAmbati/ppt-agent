@@ -46,10 +46,10 @@ export default function DashboardPage() {
     <div className="space-y-8 pb-12">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+        <h1 className="text-3xl font-serif font-bold text-foreground tracking-tight mb-2">
           Create Presentation
         </h1>
-        <p className="text-lg text-gray-600 dark:text-gray-400">
+        <p className="text-lg text-muted-foreground">
           Write your presentation topic and let AI create a beautiful PowerPoint presentation in seconds.
         </p>
       </div>
@@ -58,8 +58,8 @@ export default function DashboardPage() {
       <div className="grid lg:grid-cols-2 gap-8 items-start">
         {/* Left: Input Section */}
         <div className="space-y-4">
-          <div className="bg-white dark:bg-gray-900 rounded-xl p-8 border border-gray-200 dark:border-gray-800 shadow-sm">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
+          <div className="bg-card rounded-2xl p-8 border border-border/50 shadow-sm">
+            <h2 className="text-xl font-semibold text-foreground mb-6 font-serif tracking-tight">
               Your Presentation Topic
             </h2>
             <PromptInput
@@ -70,11 +70,11 @@ export default function DashboardPage() {
           </div>
 
           {/* Tips */}
-          <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
-            <h3 className="font-medium text-blue-900 dark:text-blue-300 mb-2">
+          <div className="bg-secondary/40 rounded-xl p-6 border border-border/40">
+            <h3 className="font-medium flex items-center gap-2 text-foreground mb-3">
               💡 Tips for better results
             </h3>
-            <ul className="text-sm text-blue-800 dark:text-blue-400 space-y-1">
+            <ul className="text-sm text-muted-foreground space-y-2">
               <li>• Be specific about your topic and keywords</li>
               <li>• Mention the target audience if relevant</li>
               <li>• Include any specific themes or styles you prefer</li>
@@ -108,18 +108,18 @@ export default function DashboardPage() {
               />
             ) : (
               /* Empty State */
-              <div className="bg-white dark:bg-gray-900 rounded-xl p-8 border border-gray-200 dark:border-gray-800 shadow-sm text-center">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-3xl">✨</span>
+              <div className="bg-card rounded-2xl p-8 border border-border/50 shadow-sm text-center">
+                <div className="w-16 h-16 bg-background border border-border rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-2xl">✨</span>
                 </div>
-                <h3 className="font-semibold text-lg text-gray-900 dark:text-white mb-2">
+                <h3 className="font-semibold text-lg text-foreground mb-2">
                   Ready to Create?
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400 text-sm">
+                <p className="text-muted-foreground text-sm leading-relaxed">
                   Enter your presentation topic on the left and click Generate to create a beautiful PowerPoint presentation powered by AI.
                 </p>
-                <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-800">
-                  <p className="text-xs text-gray-500 dark:text-gray-500">
+                <div className="mt-6 pt-6 border-t border-border/40">
+                  <p className="text-xs text-muted-foreground">
                     ⏱️ Average generation time: 30-60 seconds
                   </p>
                 </div>

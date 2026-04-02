@@ -27,15 +27,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Initialize auth from localStorage on mount
   useEffect(() => {
-    const initAuth = () => {
+    const initAuth = async () => {
       try {
         const storedToken = localStorage.getItem('auth_token');
         const storedUserId = localStorage.getItem('user_id');
 
         if (storedToken && storedUserId) {
           setToken(storedToken);
-          // In a real app, you'd fetch full user data here
-          setUser({ id: storedUserId, username: '', email: '', createdAt: '' });
+          try {
+            const userData = await authAPI.getMe();
+            setUser(userData);
+          } catch (e) {
+            console.error('Failed to fetch profile', e);
+            setUser({ id: storedUserId, username: 'User', email: 'Not set', createdAt: '' });
+          }
         }
       } catch (err) {
         console.error('Failed to initialize auth:', err);
@@ -53,17 +58,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response: AuthResponse = await authAPI.login(data);
 
-      setToken(response.access_token);
-      setUser({
-        id: response.user_id,
-        username: data.username,
-        email: '',
-        createdAt: new Date().toISOString()
-      });
-
-      // Store in localStorage
+      // Store in localStorage first so API can use it immediately
       localStorage.setItem('auth_token', response.access_token);
-      localStorage.setItem('user_id', response.user_id);
+      localStorage.setItem('user_id', String(response.user_id));
+      
+      setToken(response.access_token);
+      try {
+        const userData = await authAPI.getMe();
+        setUser(userData);
+      } catch (e) {
+        setUser({ id: response.user_id, username: data.username, email: '', createdAt: new Date().toISOString() });
+      }
     } catch (err: any) {
       const errorMessage = err.response?.data?.detail || 'Login failed';
       setError(errorMessage);
@@ -80,17 +85,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await authAPI.register(data);
 
       // Auto-login after successful registration
-      setToken(response.access_token);
-      setUser({
-        id: response.user_id,
-        username: data.username,
-        email: data.email,
-        createdAt: new Date().toISOString()
-      });
-
-      // Store in localStorage
       localStorage.setItem('auth_token', response.access_token);
-      localStorage.setItem('user_id', response.user_id);
+      localStorage.setItem('user_id', String(response.user_id));
+
+      setToken(response.access_token);
+      try {
+        const userData = await authAPI.getMe();
+        setUser(userData);
+      } catch (e) {
+        setUser({ id: response.user_id, username: data.username, email: data.email, createdAt: new Date().toISOString() });
+      }
     } catch (err: any) {
       const errorMessage = err.response?.data?.detail || 'Registration failed';
       setError(errorMessage);

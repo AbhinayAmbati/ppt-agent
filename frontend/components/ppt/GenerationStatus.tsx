@@ -111,44 +111,41 @@ export function GenerationStatus({
 
   // Generation in progress
   return (
-    <div className="bg-blue-50 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-800 p-6 space-y-6">
+    <div className="bg-card rounded-2xl border border-border/50 p-8 space-y-8 shadow-sm">
       {/* Header */}
       <div>
-        <div className="flex items-center gap-2 mb-2">
-          <Loader2 className="text-blue-600 dark:text-blue-400 animate-spin" size={20} />
-          <h3 className="font-semibold text-blue-900 dark:text-blue-300">
+        <div className="flex items-center gap-3 mb-2">
+          <Loader2 className="text-foreground animate-spin" size={22} />
+          <h3 className="font-semibold text-lg text-foreground font-serif tracking-tight">
             Generating Presentation
           </h3>
         </div>
-        <p className="text-blue-700 dark:text-blue-400 text-sm">
+        <p className="text-muted-foreground text-sm ml-8">
           {message || 'Preparing your presentation...'}
         </p>
       </div>
 
       {/* Progress Bar */}
-      <div>
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+      <div className="ml-8">
+        <div className="flex justify-between items-center mb-3">
+          <span className="text-xs font-semibold text-foreground tracking-wide uppercase">
             Progress
           </span>
-          <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+          <span className="text-xs font-semibold text-foreground">
             {progress}%
           </span>
         </div>
-        <div className="w-full h-2 bg-blue-200 dark:bg-blue-900 rounded-full overflow-hidden">
+        <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-blue-600 to-purple-600 transition-all duration-300 ease-out"
+            className="h-full bg-foreground transition-all duration-300 ease-out"
             style={{ width: `${progress}%` }}
           />
         </div>
       </div>
 
       {/* Phase Steps */}
-      <div>
-        <p className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-3">
-          Generation Steps
-        </p>
-        <div className="space-y-2">
+      <div className="ml-8">
+        <div className="space-y-3">
           {PHASES.map((phase, idx) => {
             const phaseIndex = PHASES.findIndex(p => p.key === currentPhase?.toLowerCase());
             const isActive = phaseIndex === idx;
@@ -157,30 +154,30 @@ export function GenerationStatus({
             return (
               <div
                 key={phase.key}
-                className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                className={`flex items-center gap-4 p-4 rounded-xl transition-all ${
                   isCompleted
-                    ? 'bg-blue-100 dark:bg-blue-900/50'
+                    ? 'bg-secondary/40'
                     : isActive
-                    ? 'bg-blue-100 dark:bg-blue-900/50 ring-2 ring-blue-400'
-                    : 'bg-white dark:bg-gray-800'
+                    ? 'bg-background border border-border/80 shadow-sm'
+                    : 'bg-transparent border border-border/20'
                 }`}
               >
                 <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-colors ${
                     isCompleted
-                      ? 'bg-green-500 text-white'
+                      ? 'bg-foreground text-background'
                       : isActive
-                      ? 'bg-blue-600 text-white animate-pulse'
-                      : 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
+                      ? 'bg-foreground text-background animate-pulse'
+                      : 'bg-secondary text-muted-foreground'
                   }`}
                 >
                   {isCompleted ? '✓' : idx + 1}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  <p className={`text-sm font-medium ${isActive || isCompleted ? 'text-foreground' : 'text-muted-foreground'}`}>
                     {phase.label}
                   </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {phase.description}
                   </p>
                 </div>
@@ -191,8 +188,8 @@ export function GenerationStatus({
       </div>
 
       {/* Estimated time */}
-      <div className="text-sm text-blue-600 dark:text-blue-400">
-        <p>Estimated time: 30-60 seconds</p>
+      <div className="text-sm text-muted-foreground ml-8 pt-2">
+        <p>⏱️ Estimated time: 30-60 seconds</p>
       </div>
     </div>
   );

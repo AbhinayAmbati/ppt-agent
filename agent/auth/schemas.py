@@ -43,4 +43,4 @@ class TokenResponse(BaseModel):
 
 class TokenData(BaseModel):
     """Schema for JWT token data"""
-    sub: int | None = None
+    sub: str | None = None

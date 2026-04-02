@@ -44,35 +44,35 @@ export function PromptInput({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className={`relative rounded-xl border-2 transition-colors ${
+      <div className={`relative rounded-xl border transition-colors ${
         hasError
-          ? 'border-red-500 bg-red-50 dark:bg-red-950/20'
-          : 'border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900'
+          ? 'border-red-500 bg-red-500/10'
+          : 'border-border bg-background focus-within:border-foreground/50'
       }`}>
         <textarea
           value={prompt}
           onChange={handleChange}
           placeholder="Write your presentation topic or idea here... E.g., 'Create a presentation about climate change and its impact on ecosystems'"
           disabled={isLoading}
-          className={`w-full px-6 py-4 bg-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 rounded-lg outline-none resize-none disabled:opacity-50 ${
+          className={`w-full px-6 py-4 bg-transparent text-foreground placeholder:text-muted-foreground rounded-xl outline-none resize-none disabled:opacity-50 transition-colors ${
             isLoading ? 'cursor-not-allowed' : 'cursor-text'
           }`}
           rows={8}
         />
 
         {/* Character count */}
-        <div className="absolute bottom-3 right-3 text-xs text-gray-500 dark:text-gray-400 font-medium">
+        <div className="absolute bottom-3 right-4 text-xs text-muted-foreground font-medium bg-background px-2 py-1 rounded-md border border-border/50">
           {charCount}/{maxChars}
         </div>
       </div>
 
       {/* Info text */}
-      <div className="text-sm text-gray-600 dark:text-gray-400">
+      <div className="text-sm text-muted-foreground flex justify-between items-center px-1">
         <p>
           Minimum {minChars} characters • Maximum {maxChars} characters
         </p>
         {charCount < minChars && charCount > 0 && (
-          <p className="text-amber-600 dark:text-amber-400 mt-1">
+          <p className="text-amber-500 mt-1">
             Add {minChars - charCount} more characters
           </p>
         )}
@@ -84,7 +84,7 @@ export function PromptInput({
           type="button"
           onClick={handleClear}
           disabled={isLoading || charCount === 0}
-          className="flex items-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 px-4 py-2 text-foreground bg-secondary hover:bg-secondary/80 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Trash2 size={18} />
           Clear
@@ -93,7 +93,7 @@ export function PromptInput({
         <button
           type="submit"
           disabled={!isValid || isLoading}
-          className="flex items-center gap-2 px-8 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 px-8 py-2 bg-foreground text-background rounded-lg font-medium hover:bg-foreground/90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
         >
           {isLoading ? (
             <>

@@ -1,5 +1,5 @@
 import axios, {AxiosInstance, AxiosError} from 'axios';
-import { AuthResponse, LoginRequest, RegisterRequest, PPTGenerationResponse } from './types';
+import { User, AuthResponse, LoginRequest, RegisterRequest, PPTGenerationResponse } from './types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -58,6 +58,11 @@ export const authAPI = {
     } catch (error) {
       console.error('Logout failed:', error);
     }
+  },
+
+  getMe: async (): Promise<User> => {
+    const response = await apiClient.get<User>('/me');
+    return response.data;
   },
 };
 

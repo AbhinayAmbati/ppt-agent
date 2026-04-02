@@ -12,7 +12,7 @@ from auth.schemas import UserResponse, TokenData
 settings = get_settings()
 
 
-def create_access_token(user_id: int) -> str:
+def create_access_token(user_id: str) -> str:
     """Create JWT access token"""
     expires = datetime.utcnow() + timedelta(hours=settings.ACCESS_TOKEN_EXPIRE_HOURS)
     to_encode = {
@@ -31,7 +31,7 @@ def verify_access_token(token: str) -> TokenData | None:
         user_id: str = payload.get("sub")
         if user_id is None:
             return None
-        token_data = TokenData(sub=int(user_id))
+        token_data = TokenData(sub=user_id)
     except (JWTError, ValueError):
         return None
     return token_data

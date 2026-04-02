@@ -5,13 +5,15 @@ from sqlalchemy.orm import Session, sessionmaker
 from pydantic import BaseModel
 from typing import Optional
 import logging
+import os
 from datetime import datetime, timedelta
 
+from config import get_settings
 from models import Base, User, Session as DBSession, PPTJob, engine, init_db
 from db import hash_password, verify_password
 from auth import create_access_token, verify_access_token
 
-from agent_engine import init_agent, agent_engine
+import agent_engine
 from mcp_client import mcp_client
 
 logging.basicConfig(level=logging.INFO)
@@ -57,7 +59,7 @@ class PPTCreateResponse(BaseModel):
 @app.on_event("startup")
 async def startup_event():
     init_db()
-    init_agent()
+    agent_engine.init_agent()
     logger.info("App started")
 
 @app.on_event("shutdown")
@@ -117,7 +119,7 @@ async def create_ppt(request: PPTCreateRequest, current_user: User = Depends(get
         db.add(job)
         db.commit()
         
-        result = await agent_engine.create_presentation(request.prompt, mcp_client)
+        result = await agent_engine.agent_engine.create_presentation(request.prompt, mcp_client)
         
         if result["status"] == "success":
             job.status = "completed"
@@ -136,6 +138,38 @@ async def create_ppt(request: PPTCreateRequest, current_user: User = Depends(get
             job.error_message = str(e)
             db.commit()
         return PPTCreateResponse(status="error", message=str(e))
+
+@app.get("/me")
+async def get_me(current_user: User = Depends(get_current_user)):
+    return {
+        "id": current_user.id,
+        "username": current_user.username,
+        "email": current_user.email,
+        "createdAt": current_user.created_at.isoformat() if current_user.created_at else None
+    }
+
+@app.get("/jobs")
+async def get_jobs(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    jobs = db.query(PPTJob).filter(PPTJob.user_id == current_user.id).order_by(PPTJob.created_at.desc()).all()
+    return jobs
+
+@app.get("/download/{filename}")
+async def download_file(filename: str):
+    settings = get_settings()
+    file_path = os.path.join(settings.OUTPUT_DIR, filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(path=file_path, filename=filename, media_type='application/vnd.openxmlformats-officedocument.presentationml.presentation')
+
+@app.post("/logout")
+async def logout(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ")[1]
+        session = db.query(DBSession).filter(DBSession.token == token).first()
+        if session:
+            db.delete(session)
+            db.commit()
+    return {"status": "success"}
 
 @app.get("/health")
 async def health():

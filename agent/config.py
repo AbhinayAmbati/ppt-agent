@@ -3,25 +3,48 @@ Configuration Module
 """
 
 import os
-from dotenv import load_dotenv
+from functools import lru_cache
+from pydantic_settings import BaseSettings
 
-load_dotenv()
+class Settings(BaseSettings):
+    # Server
+    HOST: str
+    PORT: int
+    DEBUG: bool
 
-# Database
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./ppt_agent.db")
+    # Database
+    DATABASE_URL: str
 
-# Security
-SECRET_KEY = os.getenv("SECRET_KEY", "change-this-in-production")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_HOURS = 24
+    # JWT & Security
+    SECRET_KEY: str
+    JWT_ALGORITHM: str
+    ALGORITHM: str = "HS256" # For compatibility with old code if needed
+    ACCESS_TOKEN_EXPIRE_HOURS: int
 
-# HuggingFace
-HF_TOKEN = os.getenv("HF_TOKEN", "")
+    # HuggingFace
+    HF_TOKEN: str
+    LLM_MODEL: str
+    DEVICE: str
 
-# Server
-HOST = os.getenv("HOST", "0.0.0.0")
-PORT = int(os.getenv("PORT", 8000))
-DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+    # MCP
+    MCP_SERVERS_PATH: str = "mcp/servers"
 
-# MCP Servers Path
-MCP_SERVERS_PATH = "mcp/servers"
+    # Agent Config
+    OUTPUT_DIR: str
+    RATE_LIMIT_PER_HOUR: int
+    MAX_CONCURRENT_JOBS: int
+    JOB_TIMEOUT_SECONDS: int
+    MCP_TOOL_TIMEOUT: int
+    
+    # CORS
+    CORS_ORIGINS: str
+
+    class Config:
+        env_file = ".env"
+        extra = "ignore" # Ignore extra fields from .env
+
+@lru_cache()
+def get_settings():
+    settings = Settings()
+    settings.ALGORITHM = settings.JWT_ALGORITHM # map JWT_ALGORITHM config to ALGORITHM used in auth 
+    return settings

@@ -7,7 +7,9 @@ from typing import Optional
 import logging
 
 from models import Base, User, Session as DBSession, PPTJob, engine, init_db
-from auth import hash_password, verify_password, create_access_token, verify_token, Token
+from db import hash_password, verify_password
+from auth import create_access_token, verify_access_token
+from auth.schemas import TokenResponse as Token
 from agent_engine import init_agent, agent_engine
 from mcp_client import mcp_client
 
@@ -85,19 +87,19 @@ async def login(request: LoginRequest, db: Session = Depends(get_db)):
     db.add(session)
     db.commit()
     
-    return Token(access_token=token, token_type="bearer", user_id=user.id)
+    return Token(access_token=token, token_type="bearer")
 
 async def get_current_user(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Invalid auth")
     
     token = authorization.split(" ")[1]
-    user_id = verify_token(token)
+    token_data = verify_access_token(token)
     
-    if not user_id:
+    if not token_data or not token_data.sub:
         raise HTTPException(status_code=401, detail="Invalid token")
     
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.id == token_data.sub).first()
     return user
 
 @app.post("/create-ppt")

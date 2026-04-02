@@ -6,6 +6,7 @@ Includes error handling and retry logic
 
 import asyncio
 import json
+import sys
 import logging
 import subprocess
 from typing import Dict, List, Any, Optional
@@ -31,9 +32,13 @@ class MCPClient:
                 logger.error(f"Server script not found: {server_script}")
                 return False
             
+            # Ensure we strictly utilize the venv python if present to stop Windows global masking
+            venv_python = self.mcp_servers_path.parent.parent / "agent" / "venv" / "Scripts" / "python.exe"
+            python_exe = str(venv_python) if venv_python.exists() else sys.executable
+
             # Start subprocess
             process = subprocess.Popen(
-                ["python3", str(server_script)],
+                [python_exe, str(server_script)],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,

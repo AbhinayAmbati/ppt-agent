@@ -60,7 +60,8 @@ class AgentEngine:
             )
             
             if not create_result or create_result.get("status") != "success":
-                return {"status": "error", "message": "Failed to create presentation"}
+                logger.error(f"Presentation abort payload: {create_result}")
+                return {"status": "error", "message": f"Payload rejected: {create_result}"}
             
             # PHASE 3: BUILD SLIDES
             logger.info("PHASE 3: Building slides...")

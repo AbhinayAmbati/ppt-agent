@@ -48,9 +48,15 @@ export default function HistoryPage() {
     }
   };
 
-  const handleDelete = (id: string) => {
-    const updated = jobs.filter((job: PPTJob) => job.id !== id);
-    setJobs(updated);
+  const handleDelete = async (id: string) => {
+    try {
+      await pptAPI.deleteJob(id);
+      const updated = jobs.filter((job: PPTJob) => job.id !== id);
+      setJobs(updated);
+    } catch (err) {
+      console.error('Failed to delete job', err);
+      // Optional: you could set a toast or error state here if requested
+    }
   };
 
   const getStatusIcon = (status: string) => {

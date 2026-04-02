@@ -84,6 +84,10 @@ export const pptAPI = {
     });
     return response.data;
   },
+
+  deleteJob: async (jobId: string): Promise<void> => {
+    await apiClient.delete(`/jobs/${jobId}`);
+  },
 };
 
 // Health check

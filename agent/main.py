@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends, Header
+# Force cache reload 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, sessionmaker
@@ -152,6 +153,15 @@ async def get_me(current_user: User = Depends(get_current_user)):
 async def get_jobs(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     jobs = db.query(PPTJob).filter(PPTJob.user_id == current_user.id).order_by(PPTJob.created_at.desc()).all()
     return jobs
+
+@app.delete("/jobs/{job_id}")
+async def delete_job(job_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    job = db.query(PPTJob).filter(PPTJob.id == job_id, PPTJob.user_id == current_user.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    db.delete(job)
+    db.commit()
+    return {"status": "success"}
 
 @app.get("/download/{filename}")
 async def download_file(filename: str):

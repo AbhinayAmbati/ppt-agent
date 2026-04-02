@@ -4,8 +4,6 @@ from pathlib import Path
 from pptx import Presentation
 from pptx.util import Inches, Pt
 import mcp.server.stdio
-from mcp.types import Tool, TextContent
-
 _current_presentation = None
 _presentation_path = None
 
@@ -65,30 +63,33 @@ async def get_presentation_info():
         return {'status': 'error', 'message': 'No presentation'}
     return {'status': 'success', 'slide_count': len(_current_presentation.slides)}
 
+async def call_tool(name, arguments):
+    if name == 'create_presentation': return await create_presentation(arguments['title'], arguments.get('subtitle', ''))
+    elif name == 'add_slide': return await add_slide(arguments.get('layout_type', 'title_and_content'))
+    elif name == 'write_text_to_slide': return await write_text_to_slide(arguments['slide_index'], arguments['title'], arguments['content'])
+    elif name == 'add_image_placeholder': return await add_image_placeholder(arguments['slide_index'], arguments.get('placeholder_text', '[Image]'))
+    elif name == 'save_presentation': return await save_presentation(arguments['file_path'])
+    elif name == 'get_presentation_info': return await get_presentation_info()
+    else: return {'status': 'error', 'message': 'Unknown tool'}
+
 async def main():
-    server = mcp.server.stdio.StdioServer()
-    @server.list_tools()
-    async def list_tools():
-        return [
-            Tool(name='create_presentation', description='Create presentation', inputSchema={'type': 'object', 'properties': {'title': {'type': 'string'}, 'subtitle': {'type': 'string'}}, 'required': ['title']}),
-            Tool(name='add_slide', description='Add slide', inputSchema={'type': 'object', 'properties': {'layout_type': {'type': 'string'}}}),
-            Tool(name='write_text_to_slide', description='Write text', inputSchema={'type': 'object', 'properties': {'slide_index': {'type': 'integer'}, 'title': {'type': 'string'}, 'content': {'type': 'array', 'items': {'type': 'string'}}}, 'required': ['slide_index', 'title', 'content']}),
-            Tool(name='add_image_placeholder', description='Add image', inputSchema={'type': 'object', 'properties': {'slide_index': {'type': 'integer'}, 'placeholder_text': {'type': 'string'}}, 'required': ['slide_index']}),
-            Tool(name='save_presentation', description='Save', inputSchema={'type': 'object', 'properties': {'file_path': {'type': 'string'}}, 'required': ['file_path']}),
-            Tool(name='get_presentation_info', description='Get info', inputSchema={'type': 'object', 'properties': {}})
-        ]
-    @server.call_tool()
-    async def call_tool(name, arguments):
-        if name == 'create_presentation': result = await create_presentation(arguments['title'], arguments.get('subtitle', ''))
-        elif name == 'add_slide': result = await add_slide(arguments.get('layout_type', 'title_and_content'))
-        elif name == 'write_text_to_slide': result = await write_text_to_slide(arguments['slide_index'], arguments['title'], arguments['content'])
-        elif name == 'add_image_placeholder': result = await add_image_placeholder(arguments['slide_index'], arguments.get('placeholder_text', '[Image]'))
-        elif name == 'save_presentation': result = await save_presentation(arguments['file_path'])
-        elif name == 'get_presentation_info': result = await get_presentation_info()
-        else: result = {'status': 'error', 'message': 'Unknown tool'}
-        return [TextContent(type='text', text=json.dumps(result))]
-    async with server:
-        await server.wait_for_shutdown()
+    import sys
+    import json
+    while True:
+        line = sys.stdin.readline()
+        if not line:
+            break
+        try:
+            req = json.loads(line)
+            if req.get("method") == "tools/call":
+                name = req["params"]["name"]
+                args = req["params"].get("arguments", {})
+                result = await call_tool(name, args)
+                print(json.dumps(result))
+                sys.stdout.flush()
+        except Exception as e:
+            print(json.dumps({"status": "error", "message": str(e)}))
+            sys.stdout.flush()
 
 if __name__ == '__main__':
     import asyncio

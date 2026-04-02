@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 import json
 import mcp.server.stdio
+from mcp.server import Server, NotificationOptions
+from mcp.server.models import InitializationOptions
 from mcp.types import Tool, TextContent
+
+server = Server("web_search_server")
 
 try:
     from duckduckgo_search import DDGS
@@ -38,9 +42,6 @@ async def fetch_page_summary(url: str) -> dict:
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
-
-async def main():
-    server = mcp.server.stdio.StdioServer()
 
     @server.list_tools()
     async def list_tools() -> list[Tool]:
@@ -80,8 +81,17 @@ async def main():
             result = {"status": "error", "message": f"Unknown tool: {name}"}
         return [TextContent(type="text", text=json.dumps(result))]
 
-    async with server:
-        await server.wait_for_shutdown()
+async def main():
+    options = InitializationOptions(
+        server_name="web_search_server",
+        server_version="0.1.0",
+        capabilities=server.get_capabilities(
+            notification_options=NotificationOptions(),
+            experimental_capabilities={},
+        )
+    )
+    async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
+        await server.run(read_stream, write_stream, options)
 
 if __name__ == "__main__":
     import asyncio

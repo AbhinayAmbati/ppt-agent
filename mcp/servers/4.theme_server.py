@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import json
 import mcp.server.stdio
-from mcp.types import Tool, TextContent
 from pptx.util import Pt, RGBColor
 from pptx.enum.text import PP_ALIGN
 
@@ -102,82 +101,35 @@ async def get_available_themes() -> dict:
         "current_font": _current_font
     }
 
+async def call_tool(name: str, arguments: dict):
+    if name == "apply_theme":
+        return await apply_theme(arguments["theme_name"])
+    elif name == "set_color_scheme":
+        return await set_color_scheme(arguments["primary"], arguments["secondary"], arguments["text"])
+    elif name == "set_font_style":
+        return await set_font_style(arguments["font_name"], arguments.get("font_size", 18))
+    elif name == "get_available_themes":
+        return await get_available_themes()
+    else:
+        return {"status": "error", "message": f"Unknown tool: {name}"}
+
 async def main():
-    server = mcp.server.stdio.StdioServer()
-
-    @server.list_tools()
-    async def list_tools() -> list[Tool]:
-        return [
-            Tool(
-                name="apply_theme",
-                description="Apply a predefined theme to the presentation",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "theme_name": {
-                            "type": "string",
-                            "enum": list(AVAILABLE_THEMES.keys()),
-                            "description": "Name of the theme to apply"
-                        }
-                    },
-                    "required": ["theme_name"]
-                }
-            ),
-            Tool(
-                name="set_color_scheme",
-                description="Set custom colors for primary, secondary, and text",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "primary": {"type": "string", "description": "Primary color (hex or RGB)"},
-                        "secondary": {"type": "string", "description": "Secondary color (hex or RGB)"},
-                        "text": {"type": "string", "description": "Text color (hex or RGB)"}
-                    },
-                    "required": ["primary", "secondary", "text"]
-                }
-            ),
-            Tool(
-                name="set_font_style",
-                description="Set font style and size",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "font_name": {
-                            "type": "string",
-                            "enum": list(FONT_STYLES.keys()),
-                            "description": "Font style to apply"
-                        },
-                        "font_size": {"type": "integer", "description": "Font size in points"}
-                    },
-                    "required": ["font_name"]
-                }
-            ),
-            Tool(
-                name="get_available_themes",
-                description="Get all available themes, colors, and font styles",
-                inputSchema={
-                    "type": "object",
-                    "properties": {}
-                }
-            )
-        ]
-
-    @server.call_tool()
-    async def call_tool(name: str, arguments: dict):
-        if name == "apply_theme":
-            result = await apply_theme(arguments["theme_name"])
-        elif name == "set_color_scheme":
-            result = await set_color_scheme(arguments["primary"], arguments["secondary"], arguments["text"])
-        elif name == "set_font_style":
-            result = await set_font_style(arguments["font_name"], arguments.get("font_size", 18))
-        elif name == "get_available_themes":
-            result = await get_available_themes()
-        else:
-            result = {"status": "error", "message": f"Unknown tool: {name}"}
-        return [TextContent(type="text", text=json.dumps(result))]
-
-    async with server:
-        await server.wait_for_shutdown()
+    import sys
+    import json
+    while True:
+        line = sys.stdin.readline()
+        if not line: break
+        try:
+            req = json.loads(line)
+            if req.get("method") == "tools/call":
+                name = req["params"]["name"]
+                args = req["params"].get("arguments", {})
+                result = await call_tool(name, args)
+                print(json.dumps(result))
+                sys.stdout.flush()
+        except Exception as e:
+            print(json.dumps({"status": "error", "message": str(e)}))
+            sys.stdout.flush()
 
 if __name__ == "__main__":
     import asyncio

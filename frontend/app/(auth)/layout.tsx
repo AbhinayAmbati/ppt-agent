@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { PublicNavbar } from '@/components/layout/PublicNavbar';
+import { PublicFooter } from '@/components/layout/PublicFooter';
 
 export default function AuthLayout({
   children,
@@ -40,6 +41,7 @@ export default function AuthLayout({
       <main className="flex-1 w-full relative z-10 flex flex-col">
         {children}
       </main>
+      <PublicFooter />
     </div>
   );
 }

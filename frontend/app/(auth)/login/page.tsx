@@ -5,7 +5,7 @@ import { LoginForm } from '@/components/auth/LoginForm';
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex flex-col pt-[15vh] items-center px-4">
+    <div className="flex-1 flex flex-col pt-[15vh] pb-20 items-center px-4">
       <div className="w-full max-w-[400px]">
         {/* Header */}
         <div className="text-center mb-10">

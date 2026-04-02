@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowRight, Sparkles, Presentation, Search, Puzzle, Palette, Clock, Download, ShieldCheck } from 'lucide-react';
 import { PublicNavbar } from '@/components/layout/PublicNavbar';
+import { PublicFooter } from '@/components/layout/PublicFooter';
 
 export default function LandingPage() {
   const { token } = useAuth();
@@ -16,7 +17,7 @@ export default function LandingPage() {
 
       <PublicNavbar />
 
-      <main className="flex-1 flex flex-col items-center justify-center px-6 max-w-5xl mx-auto w-full relative z-10 -mt-10">
+      <main className="flex-1 flex flex-col items-center justify-center px-6 max-w-5xl mx-auto w-full relative z-10 pt-12 pb-8">
         <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-border/50 bg-secondary/30 mb-8 backdrop-blur-sm">
           <Sparkles className="w-4 h-4 text-orange-500" />
           <span className="text-sm font-medium text-muted-foreground">The next generation of presentations</span>
@@ -49,7 +50,7 @@ export default function LandingPage() {
           )}
         </div>
 
-        <div className="mt-24 w-full grid grid-cols-1 md:grid-cols-3 gap-8 pt-12 border-t border-border/40">
+        <div className="mt-24 w-full grid grid-cols-1 md:grid-cols-3 gap-8 pt-12 border-t border-border/40 pb-12">
           <div className="flex flex-col items-center text-center">
             <div className="w-12 h-12 bg-secondary rounded-2xl flex items-center justify-center mb-4">
               <span className="text-xl font-serif">1</span>
@@ -72,14 +73,94 @@ export default function LandingPage() {
             <p className="text-muted-foreground text-sm">Get a fully designed PowerPoint file instantly. Ready to share.</p>
           </div>
         </div>
+
+        {/* Extended Features Section */}
+        <div className="mt-32 w-full pt-20 border-t border-border/40">
+          <h2 className="text-3xl md:text-5xl font-serif font-medium text-center mb-16 tracking-tight text-foreground">
+            Everything you need for perfect pitches.
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            
+            <div className="p-8 rounded-3xl bg-secondary/20 border border-border/50 hover:bg-secondary/40 transition-colors flex flex-col items-start">
+              <div className="w-12 h-12 bg-background rounded-2xl flex items-center justify-center mb-6 shadow-sm border border-border/60">
+                <Puzzle className="w-5 h-5 text-foreground" />
+              </div>
+              <h3 className="text-xl font-semibold mb-3">Agentic Reasoning</h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                We don't just paste text. Our backend breaks down your prompt, figures out the story arc, and iterates before generating.
+              </p>
+            </div>
+
+            <div className="p-8 rounded-3xl bg-secondary/20 border border-border/50 hover:bg-secondary/40 transition-colors flex flex-col items-start">
+              <div className="w-12 h-12 bg-background rounded-2xl flex items-center justify-center mb-6 shadow-sm border border-border/60">
+                <Search className="w-5 h-5 text-foreground" />
+              </div>
+              <h3 className="text-xl font-semibold mb-3">Live Web Search</h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                Connects directly to search engines to pull up-to-date cited data, ensuring your statistics and facts are completely accurate.
+              </p>
+            </div>
+
+            <div className="p-8 rounded-3xl bg-secondary/20 border border-border/50 hover:bg-secondary/40 transition-colors flex flex-col items-start">
+              <div className="w-12 h-12 bg-background rounded-2xl flex items-center justify-center mb-6 shadow-sm border border-border/60">
+                <Palette className="w-5 h-5 text-foreground" />
+              </div>
+              <h3 className="text-xl font-semibold mb-3">Professional Themes</h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                Choose from a collection of premium stylistic layouts that ensure corporate readiness out of the box. No manual tweaking necessary.
+              </p>
+            </div>
+
+            <div className="p-8 rounded-3xl bg-secondary/20 border border-border/50 hover:bg-secondary/40 transition-colors flex flex-col items-start">
+              <div className="w-12 h-12 bg-background rounded-2xl flex items-center justify-center mb-6 shadow-sm border border-border/60">
+                <Clock className="w-5 h-5 text-foreground" />
+              </div>
+              <h3 className="text-xl font-semibold mb-3">Done in Seconds</h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                What normally takes 4 hours of manual clicking now takes roughly 15 seconds. Give yourself your workflow back.
+              </p>
+            </div>
+
+            <div className="p-8 rounded-3xl bg-secondary/20 border border-border/50 hover:bg-secondary/40 transition-colors flex flex-col items-start">
+              <div className="w-12 h-12 bg-background rounded-2xl flex items-center justify-center mb-6 shadow-sm border border-border/60">
+                <ShieldCheck className="w-5 h-5 text-foreground" />
+              </div>
+              <h3 className="text-xl font-semibold mb-3">Enterprise Security</h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                Equipped with fully hashed credentials, secure JWT sessions, and privacy layers that protect corporate intellectual property.
+              </p>
+            </div>
+
+            <div className="p-8 rounded-3xl bg-secondary/20 border border-border/50 hover:bg-secondary/40 transition-colors flex flex-col items-start">
+              <div className="w-12 h-12 bg-background rounded-2xl flex items-center justify-center mb-6 shadow-sm border border-border/60">
+                <Download className="w-5 h-5 text-foreground" />
+              </div>
+              <h3 className="text-xl font-semibold mb-3">Universal Export</h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                Directly produces native <code>.pptx</code> files that are universally compatible with Microsoft PowerPoint, Google Slides, and Apple Keynote.
+              </p>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Bottom CTA block */}
+        <div className="w-full bg-foreground text-background mt-32 mb-16 rounded-[2.5rem] p-12 md:p-16 text-center flex flex-col items-center shadow-xl border border-border/10 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 blur-[100px] pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/10 blur-[100px] pointer-events-none" />
+          
+          <h2 className="text-3xl md:text-5xl font-serif font-medium mb-6 relative z-10 tracking-tight">Create your first presentation</h2>
+          <p className="opacity-80 max-w-lg mb-10 text-lg relative z-10">Join thousands who have already shifted to agent-assisted slide building and reclaim your time.</p>
+          <Link
+            href={token ? '/dashboard' : '/register'}
+            className="px-10 py-4 bg-background text-foreground rounded-full font-medium text-lg hover:bg-secondary/90 transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 relative z-10"
+          >
+            {token ? 'Go to Dashboard' : 'Get Started Now'}
+          </Link>
+        </div>
       </main>
       
-      <footer className="py-8 text-center text-sm text-muted-foreground/60 border-t border-border/40 mt-12 bg-background/50 backdrop-blur-md relative z-10 w-full">
-        <div className="max-w-7xl mx-auto px-8 flex justify-between items-center">
-           <span>&copy; {new Date().getFullYear()} Auto-PPT.</span>
-           <span className="font-serif italic">Agentic flow</span>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

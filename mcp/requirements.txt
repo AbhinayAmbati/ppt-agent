@@ -1,0 +1,19 @@
+# MCP Servers - Auto PPT Agent
+# Core dependencies for all servers
+
+# PPT Creation
+python-pptx==0.6.23
+
+# Web Search
+duckduckgo-search==3.9.11
+requests==2.31.0
+beautifulsoup4==4.12.2
+
+# MCP Framework
+mcp==1.0.1
+
+# Async
+aiohttp==3.9.1
+
+# Optional but recommended
+python-dotenv==1.0.0

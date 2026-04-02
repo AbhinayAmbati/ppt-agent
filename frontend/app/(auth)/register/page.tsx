@@ -5,7 +5,7 @@ import { RegisterForm } from '@/components/auth/RegisterForm';
 
 export default function RegisterPage() {
   return (
-    <div className="flex-1 flex flex-col pt-[15vh] pb-20 items-center px-4">
+    <div className="flex-1 flex flex-col pt-12 md:pt-16 pb-20 items-center px-4">
       <div className="w-full max-w-[400px]">
         {/* Header */}
         <div className="text-center mb-10">

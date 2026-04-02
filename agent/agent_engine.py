@@ -48,7 +48,7 @@ class AgentEngine:
         try:
             # PHASE 1: PLANNING
             logger.info("PHASE 1: Planning slide structure...")
-            plan = self._create_default_plan(user_prompt)
+            plan = await self._create_llm_plan(user_prompt)
             logger.info(f"Created plan with {plan.num_slides} slides")
             
             # PHASE 2: CREATE PRESENTATION
@@ -118,6 +118,54 @@ class AgentEngine:
         except Exception as e:
             logger.error(f"Agent error: {e}", exc_info=True)
             return {"status": "error", "message": str(e)}
+
+    async def _create_llm_plan(self, user_prompt: str) -> PresentationPlan:
+        """Call HuggingFace Inference API to dynamically generate a context-aware outline"""
+        try:
+            from config import get_settings
+            from huggingface_hub import AsyncInferenceClient
+            import re
+            
+            settings = get_settings()
+            if not settings.HF_TOKEN:
+                logger.warning("No HF_TOKEN found. Falling back to default plan.")
+                return self._create_default_plan(user_prompt)
+                
+            client = AsyncInferenceClient(token=settings.HF_TOKEN)
+            
+            prompt = f"Create a detailed 5-slide PowerPoint outline accurately answering the topic: '{user_prompt}'.\n\nReturn ONLY a raw JSON object with no markdown fences, using this structure exactly:\n{{\"title\": \"Presentation Title\", \"subtitle\": \"Subtitle Here\", \"num_slides\": 5, \"slides\": [{{\"index\": 1, \"title\": \"Slide Title\", \"bullet_points\": [\"Point 1\", \"Point 2\", \"Point 3\"]}}]}}"
+            
+            model_id = getattr(settings, 'LLM_MODEL', "Qwen/Qwen2.5-72B-Instruct")
+            logger.info(f"Querying LLM: {model_id} for topic: {user_prompt[:30]}...")
+            
+            response = await client.chat_completion(
+                model=model_id,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1500,
+                temperature=0.7
+            )
+            
+            content = response.choices[0].message.content
+            # Safely extract strictly the JSON envelope
+            json_match = re.search(r'\{(?:[^{}]|(?R))*\}|.*\{.*\}.*', content.replace('\n', ''), re.DOTALL)
+            json_str = content
+            if "```json" in content:
+                json_str = content.split("```json")[1].split("```")[0].strip()
+            elif "```" in content:
+                json_str = content.split("```")[1].strip()
+                
+            data = json.loads(json_str)
+            slides = [SlideStructure(**s) for s in data.get("slides", [])]
+            return PresentationPlan(
+                title=data.get("title", f"Presentation on {user_prompt}"),
+                subtitle=data.get("subtitle", "Overview"),
+                num_slides=len(slides),
+                slides=slides
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to generate LLM plan: {e}. Falling back to default.")
+            return self._create_default_plan(user_prompt)
     
     def _create_default_plan(self, user_prompt: str) -> PresentationPlan:
         """Create presentation plan"""

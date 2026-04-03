@@ -69,7 +69,9 @@ export const authAPI = {
 // PPT API functions
 export const pptAPI = {
   generate: async (prompt: string): Promise<PPTGenerationResponse> => {
-    const response = await apiClient.post<PPTGenerationResponse>('/create-ppt', { prompt });
+    const response = await apiClient.post<PPTGenerationResponse>('/create-ppt', { prompt }, {
+      timeout: 600000, // 10 minutes for PPT generation
+    });
     return response.data;
   },
 

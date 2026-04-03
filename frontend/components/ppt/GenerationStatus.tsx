@@ -189,7 +189,7 @@ export function GenerationStatus({
 
       {/* Estimated time */}
       <div className="text-sm text-muted-foreground ml-8 pt-2">
-        <p>⏱️ Estimated time: 30-60 seconds</p>
+        <p>Estimated time: 30-60 seconds</p>
       </div>
     </div>
   );

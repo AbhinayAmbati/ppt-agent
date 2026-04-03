@@ -76,7 +76,7 @@ export function GenerationStatus({
 
   if (downloadUrl) {
     return (
-      <div className="bg-white dark:bg-[#052e16] rounded-xl border border-[#bbf7d0] dark:border-[#166534] p-6 shadow-sm">
+      <div className="bg-card rounded-xl border border-green-200 dark:border-green-800 p-6 shadow-sm">
         <div className="flex items-start gap-4">
           <CheckCircle2 className="text-green-600 dark:text-green-400 flex-shrink-0" size={24} />
           <div className="flex-1">

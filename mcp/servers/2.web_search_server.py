@@ -1,98 +1,91 @@
 #!/usr/bin/env python3
-import json
-import mcp.server.stdio
-from mcp.server import Server, NotificationOptions
-from mcp.server.models import InitializationOptions
-from mcp.types import Tool, TextContent
+"""
+Web Search MCP Server - Fixed Version
+Uses same binary stdio pattern as ppt_server.
+Provides real search results to enrich slide content.
+"""
 
-server = Server("web_search_server")
+import sys
+import json
+import asyncio
 
 try:
     from duckduckgo_search import DDGS
+    _DDGS_AVAILABLE = True
 except ImportError:
-    DDGS = None
+    _DDGS_AVAILABLE = False
 
-async def search_topic(topic: str, max_results: int = 5) -> dict:
-    if DDGS is None:
+
+async def search_topic(query: str, max_results: int = 5) -> dict:
+    """Search DuckDuckGo and return title + snippet for each result."""
+    if not _DDGS_AVAILABLE:
         return {"status": "error", "message": "duckduckgo-search not installed"}
     try:
-        ddgs = DDGS()
-        results = list(ddgs.text(topic, max_results=max_results))
+        results = []
+        with DDGS() as ddgs:
+            for r in ddgs.text(query, max_results=max_results):
+                results.append({
+                    "title":   r.get("title", ""),
+                    "snippet": r.get("body", ""),
+                    "url":     r.get("href", ""),
+                })
         return {
-            "status": "success",
-            "topic": topic,
-            "results_count": len(results),
-            "results": results
+            "status":  "success",
+            "query":   query,
+            "count":   len(results),
+            "results": results,
         }
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": str(e), "results": []}
+
 
 async def fetch_page_summary(url: str) -> dict:
+    """Fetch a URL and return the first 500 chars of clean text."""
     try:
         import requests
         from bs4 import BeautifulSoup
-        response = requests.get(url, timeout=5)
-        soup = BeautifulSoup(response.content, 'html.parser')
-        paragraphs = soup.find_all('p')
-        text = ' '.join([p.get_text() for p in paragraphs[:3]])
-        return {
-            "status": "success",
-            "url": url,
-            "summary": text[:500]
-        }
+        resp = requests.get(url, timeout=6, headers={"User-Agent": "Mozilla/5.0"})
+        soup = BeautifulSoup(resp.content, "html.parser")
+        paragraphs = soup.find_all("p")
+        text = " ".join(p.get_text() for p in paragraphs[:5]).strip()
+        return {"status": "success", "url": url, "summary": text[:600]}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-    @server.list_tools()
-    async def list_tools() -> list[Tool]:
-        return [
-            Tool(
-                name="search_topic",
-                description="Search for a topic using DuckDuckGo",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "topic": {"type": "string", "description": "Topic to search"},
-                        "max_results": {"type": "integer", "description": "Max results"}
-                    },
-                    "required": ["topic"]
-                }
-            ),
-            Tool(
-                name="fetch_page_summary",
-                description="Fetch and summarize a web page",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "url": {"type": "string", "description": "URL to fetch"}
-                    },
-                    "required": ["url"]
-                }
-            )
-        ]
 
-    @server.call_tool()
-    async def call_tool(name: str, arguments: dict):
-        if name == "search_topic":
-            result = await search_topic(arguments["topic"], arguments.get("max_results", 5))
-        elif name == "fetch_page_summary":
-            result = await fetch_page_summary(arguments["url"])
-        else:
-            result = {"status": "error", "message": f"Unknown tool: {name}"}
-        return [TextContent(type="text", text=json.dumps(result))]
+async def call_tool(name: str, arguments: dict) -> dict:
+    if name == "search_topic":
+        return await search_topic(
+            arguments.get("query") or arguments.get("topic", ""),
+            arguments.get("max_results", 5),
+        )
+    elif name == "fetch_page_summary":
+        return await fetch_page_summary(arguments["url"])
+    else:
+        return {"status": "error", "message": f"Unknown tool: {name}"}
+
 
 async def main():
-    options = InitializationOptions(
-        server_name="web_search_server",
-        server_version="0.1.0",
-        capabilities=server.get_capabilities(
-            notification_options=NotificationOptions(),
-            experimental_capabilities={},
-        )
-    )
-    async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
-        await server.run(read_stream, write_stream, options)
+    stdin  = sys.stdin.buffer
+    stdout = sys.stdout.buffer
+    while True:
+        line = stdin.readline()
+        if not line:
+            break
+        try:
+            req = json.loads(line.decode("utf-8").strip())
+            if req.get("method") == "tools/call":
+                result = await call_tool(
+                    req["params"]["name"],
+                    req["params"].get("arguments", {}),
+                )
+            else:
+                result = {"status": "error", "message": f"Unknown method: {req.get('method')}"}
+        except Exception as e:
+            result = {"status": "error", "message": f"Parse error: {e}"}
+        stdout.write((json.dumps(result) + "\n").encode("utf-8"))
+        stdout.flush()
+
 
 if __name__ == "__main__":
-    import asyncio
     asyncio.run(main())

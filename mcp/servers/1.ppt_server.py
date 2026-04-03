@@ -1,92 +1,94 @@
 #!/usr/bin/env python3
 """
-PPT MCP Server - Beautiful Styled Version
-- Widescreen 16:9 slides (not square)
-- Full background color per slide
-- Styled title with accent bar
-- Bullet points with proper fonts and spacing
-- Alternating accent colors per slide
+PPT MCP Server - v3.1
+Fixes:
+- write_text_to_slide: content items coerced to str defensively
+- call_tool: returns full traceback in error response for easier debugging
+- Text vertically centered in bullet area (not top-aligned)
+- Beautiful image placeholder box with icon + caption
+- Two-column layout support (bullets left, image right)
+- Conclusion slide gets special "thank you" styling
+- All text uses auto_size=False to prevent overflow
 """
 
 import sys
 import json
 import asyncio
+import traceback as _tb
 from pathlib import Path
 from pptx import Presentation
 from pptx.util import Inches, Pt, Emu
 from pptx.dml.color import RGBColor
-from pptx.util import Inches, Pt
-from pptx.enum.text import PP_ALIGN
+from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.oxml.ns import qn
-from lxml import etree
-import copy
+from pptx.util import Inches, Pt
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-OUTPUTS_DIR = PROJECT_ROOT / "outputs"
+OUTPUTS_DIR  = PROJECT_ROOT / "outputs"
 
 _current_presentation = None
 
-# ── THEME DEFINITIONS ──────────────────────────────────────────────────────────
+# ── THEMES ────────────────────────────────────────────────────────────────────
 THEMES = {
     "ocean": {
-        "bg":          RGBColor(0x0A, 0x29, 0x4A),   # deep navy
+        "bg":             RGBColor(0x0A, 0x29, 0x4A),
         "title_slide_bg": RGBColor(0x05, 0x14, 0x2E),
-        "accent":      RGBColor(0x00, 0xB4, 0xD8),   # cyan
-        "accent2":     RGBColor(0x90, 0xE0, 0xEF),   # light blue
-        "title_fg":    RGBColor(0xFF, 0xFF, 0xFF),
-        "subtitle_fg": RGBColor(0x90, 0xE0, 0xEF),
-        "bullet_fg":   RGBColor(0xE0, 0xF7, 0xFF),
-        "bar":         RGBColor(0x00, 0xB4, 0xD8),
-        "title_font":  "Calibri",
-        "body_font":   "Calibri",
+        "accent":         RGBColor(0x00, 0xB4, 0xD8),
+        "accent2":        RGBColor(0x90, 0xE0, 0xEF),
+        "title_fg":       RGBColor(0xFF, 0xFF, 0xFF),
+        "subtitle_fg":    RGBColor(0x90, 0xE0, 0xEF),
+        "bullet_fg":      RGBColor(0xE0, 0xF7, 0xFF),
+        "img_bg":         RGBColor(0x05, 0x3A, 0x5E),
+        "title_font":     "Calibri",
+        "body_font":      "Calibri",
     },
     "corporate": {
-        "bg":          RGBColor(0x1A, 0x1A, 0x2E),
+        "bg":             RGBColor(0x1A, 0x1A, 0x2E),
         "title_slide_bg": RGBColor(0x10, 0x10, 0x20),
-        "accent":      RGBColor(0xE9, 0x4F, 0x37),
-        "accent2":     RGBColor(0xF5, 0xA6, 0x23),
-        "title_fg":    RGBColor(0xFF, 0xFF, 0xFF),
-        "subtitle_fg": RGBColor(0xF5, 0xA6, 0x23),
-        "bullet_fg":   RGBColor(0xF0, 0xF0, 0xF0),
-        "bar":         RGBColor(0xE9, 0x4F, 0x37),
-        "title_font":  "Calibri",
-        "body_font":   "Calibri",
+        "accent":         RGBColor(0xE9, 0x4F, 0x37),
+        "accent2":        RGBColor(0xF5, 0xA6, 0x23),
+        "title_fg":       RGBColor(0xFF, 0xFF, 0xFF),
+        "subtitle_fg":    RGBColor(0xF5, 0xA6, 0x23),
+        "bullet_fg":      RGBColor(0xF0, 0xF0, 0xF0),
+        "img_bg":         RGBColor(0x2E, 0x1A, 0x1A),
+        "title_font":     "Calibri",
+        "body_font":      "Calibri",
     },
     "minimal": {
-        "bg":          RGBColor(0xF8, 0xF9, 0xFA),
+        "bg":             RGBColor(0xF8, 0xF9, 0xFA),
         "title_slide_bg": RGBColor(0xFF, 0xFF, 0xFF),
-        "accent":      RGBColor(0x21, 0x96, 0xF3),
-        "accent2":     RGBColor(0x64, 0xB5, 0xF6),
-        "title_fg":    RGBColor(0x1A, 0x1A, 0x2E),
-        "subtitle_fg": RGBColor(0x21, 0x96, 0xF3),
-        "bullet_fg":   RGBColor(0x2C, 0x2C, 0x3E),
-        "bar":         RGBColor(0x21, 0x96, 0xF3),
-        "title_font":  "Calibri",
-        "body_font":   "Calibri",
+        "accent":         RGBColor(0x21, 0x96, 0xF3),
+        "accent2":        RGBColor(0x64, 0xB5, 0xF6),
+        "title_fg":       RGBColor(0x1A, 0x1A, 0x2E),
+        "subtitle_fg":    RGBColor(0x21, 0x96, 0xF3),
+        "bullet_fg":      RGBColor(0x2C, 0x2C, 0x3E),
+        "img_bg":         RGBColor(0xDD, 0xEE, 0xFF),
+        "title_font":     "Calibri",
+        "body_font":      "Calibri",
     },
     "dark": {
-        "bg":          RGBColor(0x12, 0x12, 0x12),
+        "bg":             RGBColor(0x12, 0x12, 0x12),
         "title_slide_bg": RGBColor(0x08, 0x08, 0x08),
-        "accent":      RGBColor(0xBB, 0x86, 0xFC),
-        "accent2":     RGBColor(0x03, 0xDA, 0xC6),
-        "title_fg":    RGBColor(0xFF, 0xFF, 0xFF),
-        "subtitle_fg": RGBColor(0xBB, 0x86, 0xFC),
-        "bullet_fg":   RGBColor(0xE0, 0xE0, 0xE0),
-        "bar":         RGBColor(0xBB, 0x86, 0xFC),
-        "title_font":  "Calibri",
-        "body_font":   "Calibri",
+        "accent":         RGBColor(0xBB, 0x86, 0xFC),
+        "accent2":        RGBColor(0x03, 0xDA, 0xC6),
+        "title_fg":       RGBColor(0xFF, 0xFF, 0xFF),
+        "subtitle_fg":    RGBColor(0xBB, 0x86, 0xFC),
+        "bullet_fg":      RGBColor(0xE0, 0xE0, 0xE0),
+        "img_bg":         RGBColor(0x1E, 0x1E, 0x2E),
+        "title_font":     "Calibri",
+        "body_font":      "Calibri",
     },
     "academic": {
-        "bg":          RGBColor(0x1B, 0x2A, 0x4A),
+        "bg":             RGBColor(0x1B, 0x2A, 0x4A),
         "title_slide_bg": RGBColor(0x0D, 0x1B, 0x33),
-        "accent":      RGBColor(0xC8, 0xA2, 0x00),
-        "accent2":     RGBColor(0xE8, 0xD0, 0x70),
-        "title_fg":    RGBColor(0xFF, 0xFF, 0xFF),
-        "subtitle_fg": RGBColor(0xC8, 0xA2, 0x00),
-        "bullet_fg":   RGBColor(0xF0, 0xEC, 0xD8),
-        "bar":         RGBColor(0xC8, 0xA2, 0x00),
-        "title_font":  "Georgia",
-        "body_font":   "Calibri",
+        "accent":         RGBColor(0xC8, 0xA2, 0x00),
+        "accent2":        RGBColor(0xE8, 0xD0, 0x70),
+        "title_fg":       RGBColor(0xFF, 0xFF, 0xFF),
+        "subtitle_fg":    RGBColor(0xC8, 0xA2, 0x00),
+        "bullet_fg":      RGBColor(0xF0, 0xEC, 0xD8),
+        "img_bg":         RGBColor(0x0D, 0x1B, 0x33),
+        "title_font":     "Georgia",
+        "body_font":      "Calibri",
     },
 }
 
@@ -94,152 +96,241 @@ DEFAULT_THEME = "ocean"
 _active_theme = THEMES[DEFAULT_THEME]
 
 
-# ── HELPERS ─────────────────────────────────────────────────────────────────────
+# ── HELPERS ───────────────────────────────────────────────────────────────────
 
 def _set_bg(slide, color: RGBColor):
-    """Fill slide background with a solid color."""
-    bg = slide.background
-    fill = bg.fill
+    fill = slide.background.fill
     fill.solid()
     fill.fore_color.rgb = color
 
 
-def _add_rect(slide, x, y, w, h, color: RGBColor):
-    """Add a filled rectangle shape."""
-    shape = slide.shapes.add_shape(
-        1,  # MSO_SHAPE_TYPE.RECTANGLE
-        Inches(x), Inches(y), Inches(w), Inches(h)
-    )
+def _add_rect(slide, x, y, w, h, color: RGBColor, border_color=None):
+    from pptx.util import Pt as _Pt
+    shape = slide.shapes.add_shape(1, Inches(x), Inches(y), Inches(w), Inches(h))
     shape.fill.solid()
     shape.fill.fore_color.rgb = color
-    shape.line.fill.background()  # no border
+    if border_color:
+        shape.line.color.rgb = border_color
+        shape.line.width = _Pt(1)
+    else:
+        shape.line.fill.background()
     return shape
 
 
-def _set_text_style(run, color: RGBColor, size_pt: int, bold: bool = False, font_name: str = "Calibri"):
+def _styled_run(para, text, color, size_pt, bold=False, font="Calibri"):
+    run = para.add_run()
+    run.text = str(text)          # defensive str() cast
     run.font.color.rgb = color
     run.font.size = Pt(size_pt)
     run.font.bold = bold
-    run.font.name = font_name
+    run.font.name = font
+    return run
 
 
-def _style_title_slide(slide, title: str, subtitle: str, theme: dict):
-    """Style the opening title slide."""
-    _set_bg(slide, theme["title_slide_bg"])
-
-    # Left accent bar
-    _add_rect(slide, 0, 0, 0.12, 7.5, theme["accent"])
-
-    # Bottom accent strip
-    _add_rect(slide, 0, 6.8, 13.33, 0.7, theme["accent"])
-
-    # Title text box
-    from pptx.util import Inches, Pt
-    txBox = slide.shapes.add_textbox(Inches(0.5), Inches(1.8), Inches(12.0), Inches(2.0))
-    tf = txBox.text_frame
-    tf.word_wrap = True
-    p = tf.paragraphs[0]
-    p.alignment = PP_ALIGN.LEFT
-    run = p.add_run()
-    run.text = title
-    _set_text_style(run, theme["title_fg"], 44, bold=True, font_name=theme["title_font"])
-
-    # Subtitle text box
-    txBox2 = slide.shapes.add_textbox(Inches(0.5), Inches(3.9), Inches(12.0), Inches(1.2))
-    tf2 = txBox2.text_frame
-    tf2.word_wrap = True
-    p2 = tf2.paragraphs[0]
-    p2.alignment = PP_ALIGN.LEFT
-    run2 = p2.add_run()
-    run2.text = subtitle
-    _set_text_style(run2, theme["subtitle_fg"], 22, bold=False, font_name=theme["body_font"])
-
-    # Remove default placeholders (they look ugly blank)
+def _remove_placeholders(slide):
     sp_tree = slide.shapes._spTree
-    for ph in slide.placeholders:
-        sp = ph._element
-        sp_tree.remove(sp)
-
-
-def _style_content_slide(slide, title: str, bullets: list, theme: dict, slide_num: int):
-    """Style a content slide with background, title bar, and bullets."""
-    _set_bg(slide, theme["bg"])
-
-    # Top title bar
-    _add_rect(slide, 0, 0, 13.33, 1.4, theme["accent"])
-
-    # Bottom accent strip
-    accent_color = theme["accent2"] if slide_num % 2 == 0 else theme["accent"]
-    _add_rect(slide, 0, 7.1, 13.33, 0.4, accent_color)
-
-    # Slide number dot
-    dot = slide.shapes.add_shape(1, Inches(12.6), Inches(0.3), Inches(0.5), Inches(0.5))
-    dot.fill.solid()
-    dot.fill.fore_color.rgb = theme["bg"]
-    dot.line.fill.background()
-    dot_tf = dot.text_frame
-    dot_p = dot_tf.paragraphs[0]
-    dot_p.alignment = PP_ALIGN.CENTER
-    dot_run = dot_p.add_run()
-    dot_run.text = str(slide_num)
-    dot_run.font.color.rgb = theme["accent"]
-    dot_run.font.size = Pt(12)
-    dot_run.font.bold = True
-    dot_run.font.name = theme["title_font"]
-
-    # Title text on bar
-    title_box = slide.shapes.add_textbox(Inches(0.3), Inches(0.1), Inches(12.5), Inches(1.1))
-    tf_title = title_box.text_frame
-    tf_title.word_wrap = True
-    p_title = tf_title.paragraphs[0]
-    p_title.alignment = PP_ALIGN.LEFT
-    run_title = p_title.add_run()
-    run_title.text = title
-    _set_text_style(run_title, theme["title_fg"], 32, bold=True, font_name=theme["title_font"])
-
-    # Bullets area
-    bullet_box = slide.shapes.add_textbox(Inches(0.5), Inches(1.6), Inches(12.3), Inches(5.2))
-    tf_bullets = bullet_box.text_frame
-    tf_bullets.word_wrap = True
-
-    for i, bullet_text in enumerate(bullets):
-        p = tf_bullets.paragraphs[0] if i == 0 else tf_bullets.add_paragraph()
-        p.alignment = PP_ALIGN.LEFT
-        p.space_before = Pt(6)
-
-        # Bullet dot run
-        dot_run = p.add_run()
-        dot_run.text = "● "
-        dot_run.font.color.rgb = theme["accent"] if i % 2 == 0 else theme["accent2"]
-        dot_run.font.size = Pt(18)
-        dot_run.font.name = theme["body_font"]
-
-        # Text run
-        text_run = p.add_run()
-        text_run.text = str(bullet_text)
-        _set_text_style(text_run, theme["bullet_fg"], 18, bold=False, font_name=theme["body_font"])
-
-    # Remove default placeholders
-    sp_tree = slide.shapes._spTree
-    for ph in slide.placeholders:
+    for ph in list(slide.placeholders):
         sp_tree.remove(ph._element)
 
 
-# ── TOOL FUNCTIONS ──────────────────────────────────────────────────────────────
+# ── TITLE SLIDE ───────────────────────────────────────────────────────────────
 
-async def create_presentation(title: str, subtitle: str = "", theme_name: str = DEFAULT_THEME) -> dict:
+def _style_title_slide(slide, title: str, subtitle: str, theme: dict):
+    _set_bg(slide, theme["title_slide_bg"])
+    _remove_placeholders(slide)
+
+    # Left thick accent bar
+    _add_rect(slide, 0, 0, 0.15, 7.5, theme["accent"])
+
+    # Bottom strip
+    _add_rect(slide, 0, 6.7, 13.33, 0.8, theme["accent"])
+
+    # Decorative top-right corner square
+    _add_rect(slide, 12.53, 0, 0.8, 0.8, theme["accent2"])
+
+    # Title
+    tb = slide.shapes.add_textbox(Inches(0.5), Inches(1.6), Inches(12.0), Inches(2.5))
+    tf = tb.text_frame
+    tf.word_wrap = True
+    p = tf.paragraphs[0]
+    p.alignment = PP_ALIGN.LEFT
+    _styled_run(p, title, theme["title_fg"], 46, bold=True, font=theme["title_font"])
+
+    # Divider line (thin rect)
+    _add_rect(slide, 0.5, 4.3, 5.0, 0.05, theme["accent"])
+
+    # Subtitle
+    tb2 = slide.shapes.add_textbox(Inches(0.5), Inches(4.5), Inches(11.5), Inches(1.5))
+    tf2 = tb2.text_frame
+    tf2.word_wrap = True
+    p2 = tf2.paragraphs[0]
+    p2.alignment = PP_ALIGN.LEFT
+    _styled_run(p2, subtitle, theme["subtitle_fg"], 22, bold=False, font=theme["body_font"])
+
+    # "Presentation" label on bottom strip
+    tb3 = slide.shapes.add_textbox(Inches(0.4), Inches(6.75), Inches(8.0), Inches(0.6))
+    tf3 = tb3.text_frame
+    p3 = tf3.paragraphs[0]
+    p3.alignment = PP_ALIGN.LEFT
+    _styled_run(p3, "AUTO-GENERATED PRESENTATION", theme["title_fg"], 10, bold=True, font=theme["body_font"])
+
+
+# ── CONTENT SLIDE ─────────────────────────────────────────────────────────────
+
+def _style_content_slide(slide, title: str, bullets: list, theme: dict,
+                          slide_num: int, include_image: bool = False):
+    _set_bg(slide, theme["bg"])
+    _remove_placeholders(slide)
+
+    # Title bar
+    _add_rect(slide, 0, 0, 13.33, 1.45, theme["accent"])
+
+    # Bottom strip (alternating color)
+    strip_color = theme["accent2"] if slide_num % 2 == 0 else theme["accent"]
+    _add_rect(slide, 0, 7.15, 13.33, 0.35, strip_color)
+
+    # Slide number pill
+    pill = _add_rect(slide, 12.55, 0.45, 0.55, 0.45, theme["bg"])
+    pill_tf = pill.text_frame
+    pill_p = pill_tf.paragraphs[0]
+    pill_p.alignment = PP_ALIGN.CENTER
+    _styled_run(pill_p, str(slide_num), theme["accent2"], 11, bold=True, font=theme["title_font"])
+
+    # Title text — vertically centred in bar
+    title_tb = slide.shapes.add_textbox(Inches(0.35), Inches(0.08), Inches(12.0), Inches(1.28))
+    title_tf = title_tb.text_frame
+    title_tf.word_wrap = True
+    title_tf.auto_size = None
+    title_tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+    p_title = title_tf.paragraphs[0]
+    p_title.alignment = PP_ALIGN.LEFT
+    _styled_run(p_title, title, theme["title_fg"], 30, bold=True, font=theme["title_font"])
+
+    if include_image:
+        # Two-column: bullets left (7.5w), image placeholder right (4.8w)
+        _style_bullets_box(slide, bullets, theme,
+                           x=0.3, y=1.55, w=7.5, h=5.4)
+        _style_image_placeholder(slide, theme,
+                                  x=8.05, y=1.55, w=4.9, h=5.4,
+                                  caption=f"[{title} Image]")
+    else:
+        # Full-width bullets — centred vertically
+        _style_bullets_box(slide, bullets, theme,
+                           x=0.4, y=1.55, w=12.5, h=5.4)
+
+
+def _style_bullets_box(slide, bullets, theme, x, y, w, h):
+    """Bullet point text box — text anchored to middle vertically."""
+    tb = slide.shapes.add_textbox(Inches(x), Inches(y), Inches(w), Inches(h))
+    tf = tb.text_frame
+    tf.word_wrap = True
+    tf.auto_size = None
+    tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+
+    bullet_symbols = ["▸", "◆", "●", "▹", "◇"]
+
+    for i, text in enumerate(bullets):
+        # Coerce to string defensively
+        text = str(text).strip() if text is not None else ""
+        if not text:
+            continue
+
+        p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+        p.alignment = PP_ALIGN.LEFT
+        from pptx.util import Pt as _Pt
+        p.space_before = _Pt(10)
+        p.space_after  = _Pt(4)
+
+        sym = bullet_symbols[i % len(bullet_symbols)]
+        sym_color = theme["accent"] if i % 2 == 0 else theme["accent2"]
+
+        _styled_run(p, f"{sym}  ", sym_color, 16, bold=True, font=theme["body_font"])
+        _styled_run(p, text, theme["bullet_fg"], 18, bold=False, font=theme["body_font"])
+
+
+def _style_image_placeholder(slide, theme, x, y, w, h, caption="[Image]"):
+    """Styled image placeholder with rounded look, camera icon text, caption."""
+    # Background box
+    bg = _add_rect(slide, x, y, w, h, theme["img_bg"], border_color=theme["accent2"])
+
+    # Camera / image icon (unicode) centred
+    icon_tb = slide.shapes.add_textbox(
+        Inches(x + w/2 - 0.7), Inches(y + h/2 - 0.85), Inches(1.4), Inches(0.9)
+    )
+    icon_tf = icon_tb.text_frame
+    icon_p = icon_tf.paragraphs[0]
+    icon_p.alignment = PP_ALIGN.CENTER
+    _styled_run(icon_p, "🖼", theme["accent2"], 36, font="Segoe UI Emoji")
+
+    # Caption below icon
+    cap_tb = slide.shapes.add_textbox(
+        Inches(x + 0.2), Inches(y + h/2 + 0.1), Inches(w - 0.4), Inches(0.8)
+    )
+    cap_tf = cap_tb.text_frame
+    cap_tf.word_wrap = True
+    cap_p = cap_tf.paragraphs[0]
+    cap_p.alignment = PP_ALIGN.CENTER
+    _styled_run(cap_p, caption, theme["accent2"], 13, bold=False, font=theme["body_font"])
+
+    # Dashed border hint text at bottom
+    hint_tb = slide.shapes.add_textbox(
+        Inches(x + 0.2), Inches(y + h - 0.55), Inches(w - 0.4), Inches(0.45)
+    )
+    hint_tf = hint_tb.text_frame
+    hint_p = hint_tf.paragraphs[0]
+    hint_p.alignment = PP_ALIGN.CENTER
+    _styled_run(hint_p, "[ Replace with actual image ]",
+                theme["bullet_fg"], 9, bold=False, font=theme["body_font"])
+
+
+# ── CONCLUSION SLIDE ──────────────────────────────────────────────────────────
+
+def _style_conclusion_slide(slide, title: str, bullets: list, theme: dict, slide_num: int):
+    """Special thank-you / conclusion styling."""
+    _set_bg(slide, theme["title_slide_bg"])
+    _remove_placeholders(slide)
+
+    # Full-width accent bar top
+    _add_rect(slide, 0, 0, 13.33, 0.15, theme["accent"])
+    # Full-width accent bar bottom
+    _add_rect(slide, 0, 7.35, 13.33, 0.15, theme["accent"])
+
+    # Big title
+    tb = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.3), Inches(1.5))
+    tf = tb.text_frame
+    tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+    p = tf.paragraphs[0]
+    p.alignment = PP_ALIGN.CENTER
+    _styled_run(p, title, theme["accent"], 36, bold=True, font=theme["title_font"])
+
+    # Divider
+    _add_rect(slide, 2.0, 1.9, 9.33, 0.06, theme["accent2"])
+
+    # Bullets centred
+    _style_bullets_box(slide, bullets, theme, x=1.5, y=2.1, w=10.33, h=4.2)
+
+    # Slide num
+    pill = _add_rect(slide, 12.55, 0.2, 0.55, 0.45, theme["accent"])
+    pill_tf = pill.text_frame
+    pill_p = pill_tf.paragraphs[0]
+    pill_p.alignment = PP_ALIGN.CENTER
+    _styled_run(pill_p, str(slide_num), theme["title_fg"], 11, bold=True, font=theme["title_font"])
+
+
+# ── TOOL FUNCTIONS ────────────────────────────────────────────────────────────
+
+async def create_presentation(title: str, subtitle: str = "",
+                               theme_name: str = DEFAULT_THEME) -> dict:
     global _current_presentation, _active_theme
     theme = THEMES.get(theme_name, THEMES[DEFAULT_THEME])
     _active_theme = theme
 
     prs = Presentation()
-    # 16:9 widescreen
     prs.slide_width  = Inches(13.33)
     prs.slide_height = Inches(7.5)
 
-    # Use blank layout for full control
-    blank_layout = prs.slide_layouts[6]
-    slide = prs.slides.add_slide(blank_layout)
+    blank = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(blank)
     _style_title_slide(slide, title, subtitle, theme)
 
     _current_presentation = prs
@@ -250,27 +341,72 @@ async def add_slide(layout_type: str = "title_and_content") -> dict:
     global _current_presentation
     if _current_presentation is None:
         return {"status": "error", "message": "No active presentation"}
-    blank_layout = _current_presentation.slide_layouts[6]
-    _current_presentation.slides.add_slide(blank_layout)
-    return {"status": "success", "message": "Slide added", "slide_count": len(_current_presentation.slides)}
+    blank = _current_presentation.slide_layouts[6]
+    _current_presentation.slides.add_slide(blank)
+    return {"status": "success", "message": "Slide added",
+            "slide_count": len(_current_presentation.slides)}
 
 
-async def write_text_to_slide(slide_index: int, title: str, content: list) -> dict:
+async def write_text_to_slide(slide_index: int, title: str, content: list,
+                               include_image: bool = False,
+                               is_conclusion: bool = False) -> dict:
+    global _current_presentation, _active_theme
+    if _current_presentation is None:
+        return {"status": "error", "message": "No active presentation"}
+
+    slides = _current_presentation.slides
+    if slide_index < 0 or slide_index >= len(slides):
+        return {
+            "status": "error",
+            "message": (
+                f"slide_index {slide_index} out of range "
+                f"(total slides={len(slides)}). "
+                f"Valid range: 0 – {len(slides)-1}."
+            )
+        }
+
+    # Coerce content items to plain strings
+    clean_content = [str(item).strip() for item in (content or []) if item is not None]
+    if not clean_content:
+        clean_content = [f"Key information about {title}"]
+
+    slide = slides[slide_index]
+    try:
+        if is_conclusion:
+            _style_conclusion_slide(slide, str(title), clean_content, _active_theme,
+                                    slide_num=slide_index)
+        else:
+            _style_content_slide(slide, str(title), clean_content, _active_theme,
+                                  slide_num=slide_index, include_image=bool(include_image))
+    except Exception as exc:
+        return {
+            "status":  "error",
+            "message": f"Styling failed: {exc}",
+            "trace":   _tb.format_exc(),
+        }
+
+    return {"status": "success", "message": "Text written", "bullet_count": len(clean_content)}
+
+
+async def add_image_placeholder(slide_index: int, placeholder_text: str = "[Image]") -> dict:
     global _current_presentation, _active_theme
     if _current_presentation is None:
         return {"status": "error", "message": "No active presentation"}
     slides = _current_presentation.slides
     if slide_index < 0 or slide_index >= len(slides):
-        return {"status": "error", "message": f"slide_index {slide_index} out of range (total={len(slides)})"}
+        return {"status": "error", "message": f"slide_index {slide_index} out of range"}
     slide = slides[slide_index]
-    _style_content_slide(slide, title, content, _active_theme, slide_num=slide_index)
-    return {"status": "success", "message": "Text written", "bullet_count": len(content)}
+    _style_image_placeholder(slide, _active_theme,
+                              x=1.5, y=2.0, w=10.33, h=4.0,
+                              caption=placeholder_text)
+    return {"status": "success", "message": "Image placeholder added"}
 
 
 async def set_theme(theme_name: str) -> dict:
     global _active_theme
     if theme_name not in THEMES:
-        return {"status": "error", "message": f"Unknown theme. Available: {list(THEMES.keys())}"}
+        return {"status": "error",
+                "message": f"Unknown theme. Available: {list(THEMES.keys())}"}
     _active_theme = THEMES[theme_name]
     return {"status": "success", "theme": theme_name}
 
@@ -292,28 +428,6 @@ async def get_presentation_info() -> dict:
     return {"status": "success", "slide_count": len(_current_presentation.slides)}
 
 
-async def add_image_placeholder(slide_index: int, placeholder_text: str = "[Image]") -> dict:
-    global _current_presentation, _active_theme
-    if _current_presentation is None:
-        return {"status": "error", "message": "No active presentation"}
-    slides = _current_presentation.slides
-    if slide_index < 0 or slide_index >= len(slides):
-        return {"status": "error", "message": f"slide_index {slide_index} out of range"}
-    slide = slides[slide_index]
-    box = slide.shapes.add_textbox(Inches(1), Inches(2.5), Inches(8), Inches(2.5))
-    box.fill.solid()
-    box.fill.fore_color.rgb = _active_theme["accent"]
-    tf = box.text_frame
-    p = tf.paragraphs[0]
-    p.alignment = PP_ALIGN.CENTER
-    run = p.add_run()
-    run.text = placeholder_text
-    run.font.color.rgb = _active_theme["title_fg"]
-    run.font.size = Pt(20)
-    run.font.bold = True
-    return {"status": "success", "message": "Image placeholder added"}
-
-
 async def call_tool(name: str, arguments: dict) -> dict:
     try:
         if name == "create_presentation":
@@ -326,23 +440,27 @@ async def call_tool(name: str, arguments: dict) -> dict:
             return await add_slide(arguments.get("layout_type", "title_and_content"))
         elif name == "write_text_to_slide":
             return await write_text_to_slide(
-                arguments["slide_index"], arguments["title"], arguments["content"]
+                arguments["slide_index"],
+                arguments["title"],
+                arguments["content"],
+                include_image=arguments.get("include_image", False),
+                is_conclusion=arguments.get("is_conclusion", False),
+            )
+        elif name == "add_image_placeholder":
+            return await add_image_placeholder(
+                arguments["slide_index"],
+                arguments.get("placeholder_text", "[Image]"),
             )
         elif name == "save_presentation":
             return await save_presentation(arguments["file_path"])
         elif name == "get_presentation_info":
             return await get_presentation_info()
-        elif name == "add_image_placeholder":
-            return await add_image_placeholder(
-                arguments["slide_index"], arguments.get("placeholder_text", "[Image]")
-            )
         elif name == "set_theme":
             return await set_theme(arguments["theme_name"])
         else:
             return {"status": "error", "message": f"Unknown tool: {name}"}
     except Exception as e:
-        import traceback
-        return {"status": "error", "message": str(e), "trace": traceback.format_exc()}
+        return {"status": "error", "message": str(e), "trace": _tb.format_exc()}
 
 
 async def main():
@@ -355,9 +473,8 @@ async def main():
         try:
             req = json.loads(line.decode("utf-8").strip())
             if req.get("method") == "tools/call":
-                name = req["params"]["name"]
-                args = req["params"].get("arguments", {})
-                result = await call_tool(name, args)
+                result = await call_tool(req["params"]["name"],
+                                         req["params"].get("arguments", {}))
             else:
                 result = {"status": "error", "message": f"Unknown method: {req.get('method')}"}
         except Exception as e:

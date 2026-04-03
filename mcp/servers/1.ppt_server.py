@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-PPT MCP Server - v3.1
+PPT MCP Server - v3.2
 Fixes:
+- Uniform bullet symbol (▸) and color across all bullet points — no more mixed shapes
 - write_text_to_slide: content items coerced to str defensively
 - call_tool: returns full traceback in error response for easier debugging
 - Text vertically centered in bullet area (not top-aligned)
@@ -27,6 +28,9 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent
 OUTPUTS_DIR  = PROJECT_ROOT / "outputs"
 
 _current_presentation = None
+
+# Single bullet symbol used everywhere — change this one constant to restyle all slides
+BULLET_SYMBOL = "▸"
 
 # ── THEMES ────────────────────────────────────────────────────────────────────
 THEMES = {
@@ -119,7 +123,7 @@ def _add_rect(slide, x, y, w, h, color: RGBColor, border_color=None):
 
 def _styled_run(para, text, color, size_pt, bold=False, font="Calibri"):
     run = para.add_run()
-    run.text = str(text)          # defensive str() cast
+    run.text = str(text)
     run.font.color.rgb = color
     run.font.size = Pt(size_pt)
     run.font.bold = bold
@@ -139,16 +143,10 @@ def _style_title_slide(slide, title: str, subtitle: str, theme: dict):
     _set_bg(slide, theme["title_slide_bg"])
     _remove_placeholders(slide)
 
-    # Left thick accent bar
     _add_rect(slide, 0, 0, 0.15, 7.5, theme["accent"])
-
-    # Bottom strip
     _add_rect(slide, 0, 6.7, 13.33, 0.8, theme["accent"])
-
-    # Decorative top-right corner square
     _add_rect(slide, 12.53, 0, 0.8, 0.8, theme["accent2"])
 
-    # Title
     tb = slide.shapes.add_textbox(Inches(0.5), Inches(1.6), Inches(12.0), Inches(2.5))
     tf = tb.text_frame
     tf.word_wrap = True
@@ -156,10 +154,8 @@ def _style_title_slide(slide, title: str, subtitle: str, theme: dict):
     p.alignment = PP_ALIGN.LEFT
     _styled_run(p, title, theme["title_fg"], 46, bold=True, font=theme["title_font"])
 
-    # Divider line (thin rect)
     _add_rect(slide, 0.5, 4.3, 5.0, 0.05, theme["accent"])
 
-    # Subtitle
     tb2 = slide.shapes.add_textbox(Inches(0.5), Inches(4.5), Inches(11.5), Inches(1.5))
     tf2 = tb2.text_frame
     tf2.word_wrap = True
@@ -167,7 +163,6 @@ def _style_title_slide(slide, title: str, subtitle: str, theme: dict):
     p2.alignment = PP_ALIGN.LEFT
     _styled_run(p2, subtitle, theme["subtitle_fg"], 22, bold=False, font=theme["body_font"])
 
-    # "Presentation" label on bottom strip
     tb3 = slide.shapes.add_textbox(Inches(0.4), Inches(6.75), Inches(8.0), Inches(0.6))
     tf3 = tb3.text_frame
     p3 = tf3.paragraphs[0]
@@ -182,21 +177,17 @@ def _style_content_slide(slide, title: str, bullets: list, theme: dict,
     _set_bg(slide, theme["bg"])
     _remove_placeholders(slide)
 
-    # Title bar
     _add_rect(slide, 0, 0, 13.33, 1.45, theme["accent"])
 
-    # Bottom strip (alternating color)
     strip_color = theme["accent2"] if slide_num % 2 == 0 else theme["accent"]
     _add_rect(slide, 0, 7.15, 13.33, 0.35, strip_color)
 
-    # Slide number pill
     pill = _add_rect(slide, 12.55, 0.45, 0.55, 0.45, theme["bg"])
     pill_tf = pill.text_frame
     pill_p = pill_tf.paragraphs[0]
     pill_p.alignment = PP_ALIGN.CENTER
     _styled_run(pill_p, str(slide_num), theme["accent2"], 11, bold=True, font=theme["title_font"])
 
-    # Title text — vertically centred in bar
     title_tb = slide.shapes.add_textbox(Inches(0.35), Inches(0.08), Inches(12.0), Inches(1.28))
     title_tf = title_tb.text_frame
     title_tf.word_wrap = True
@@ -207,53 +198,47 @@ def _style_content_slide(slide, title: str, bullets: list, theme: dict,
     _styled_run(p_title, title, theme["title_fg"], 30, bold=True, font=theme["title_font"])
 
     if include_image:
-        # Two-column: bullets left (7.5w), image placeholder right (4.8w)
-        _style_bullets_box(slide, bullets, theme,
-                           x=0.3, y=1.55, w=7.5, h=5.4)
-        _style_image_placeholder(slide, theme,
-                                  x=8.05, y=1.55, w=4.9, h=5.4,
+        _style_bullets_box(slide, bullets, theme, x=0.3, y=1.55, w=7.5, h=5.4)
+        _style_image_placeholder(slide, theme, x=8.05, y=1.55, w=4.9, h=5.4,
                                   caption=f"[{title} Image]")
     else:
-        # Full-width bullets — centred vertically
-        _style_bullets_box(slide, bullets, theme,
-                           x=0.4, y=1.55, w=12.5, h=5.4)
+        _style_bullets_box(slide, bullets, theme, x=0.4, y=1.55, w=12.5, h=5.4)
 
 
 def _style_bullets_box(slide, bullets, theme, x, y, w, h):
-    """Bullet point text box — text anchored to middle vertically."""
+    """
+    Bullet point text box.
+    All bullets use the same symbol (BULLET_SYMBOL) and the same accent color
+    so the slide looks visually consistent.
+    """
     tb = slide.shapes.add_textbox(Inches(x), Inches(y), Inches(w), Inches(h))
     tf = tb.text_frame
     tf.word_wrap = True
     tf.auto_size = None
     tf.vertical_anchor = MSO_ANCHOR.MIDDLE
 
-    bullet_symbols = ["▸", "◆", "●", "▹", "◇"]
+    from pptx.util import Pt as _Pt
 
     for i, text in enumerate(bullets):
-        # Coerce to string defensively
         text = str(text).strip() if text is not None else ""
         if not text:
             continue
 
         p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
         p.alignment = PP_ALIGN.LEFT
-        from pptx.util import Pt as _Pt
         p.space_before = _Pt(10)
         p.space_after  = _Pt(4)
 
-        sym = bullet_symbols[i % len(bullet_symbols)]
-        sym_color = theme["accent"] if i % 2 == 0 else theme["accent2"]
-
-        _styled_run(p, f"{sym}  ", sym_color, 16, bold=True, font=theme["body_font"])
-        _styled_run(p, text, theme["bullet_fg"], 18, bold=False, font=theme["body_font"])
+        # ── UNIFORM bullet: same symbol, same color for every point ──
+        _styled_run(p, f"{BULLET_SYMBOL}  ", theme["accent"], 16, bold=True,
+                    font=theme["body_font"])
+        _styled_run(p, text, theme["bullet_fg"], 18, bold=False,
+                    font=theme["body_font"])
 
 
 def _style_image_placeholder(slide, theme, x, y, w, h, caption="[Image]"):
-    """Styled image placeholder with rounded look, camera icon text, caption."""
-    # Background box
-    bg = _add_rect(slide, x, y, w, h, theme["img_bg"], border_color=theme["accent2"])
+    _add_rect(slide, x, y, w, h, theme["img_bg"], border_color=theme["accent2"])
 
-    # Camera / image icon (unicode) centred
     icon_tb = slide.shapes.add_textbox(
         Inches(x + w/2 - 0.7), Inches(y + h/2 - 0.85), Inches(1.4), Inches(0.9)
     )
@@ -262,7 +247,6 @@ def _style_image_placeholder(slide, theme, x, y, w, h, caption="[Image]"):
     icon_p.alignment = PP_ALIGN.CENTER
     _styled_run(icon_p, "🖼", theme["accent2"], 36, font="Segoe UI Emoji")
 
-    # Caption below icon
     cap_tb = slide.shapes.add_textbox(
         Inches(x + 0.2), Inches(y + h/2 + 0.1), Inches(w - 0.4), Inches(0.8)
     )
@@ -272,7 +256,6 @@ def _style_image_placeholder(slide, theme, x, y, w, h, caption="[Image]"):
     cap_p.alignment = PP_ALIGN.CENTER
     _styled_run(cap_p, caption, theme["accent2"], 13, bold=False, font=theme["body_font"])
 
-    # Dashed border hint text at bottom
     hint_tb = slide.shapes.add_textbox(
         Inches(x + 0.2), Inches(y + h - 0.55), Inches(w - 0.4), Inches(0.45)
     )
@@ -286,16 +269,12 @@ def _style_image_placeholder(slide, theme, x, y, w, h, caption="[Image]"):
 # ── CONCLUSION SLIDE ──────────────────────────────────────────────────────────
 
 def _style_conclusion_slide(slide, title: str, bullets: list, theme: dict, slide_num: int):
-    """Special thank-you / conclusion styling."""
     _set_bg(slide, theme["title_slide_bg"])
     _remove_placeholders(slide)
 
-    # Full-width accent bar top
     _add_rect(slide, 0, 0, 13.33, 0.15, theme["accent"])
-    # Full-width accent bar bottom
     _add_rect(slide, 0, 7.35, 13.33, 0.15, theme["accent"])
 
-    # Big title
     tb = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.3), Inches(1.5))
     tf = tb.text_frame
     tf.vertical_anchor = MSO_ANCHOR.MIDDLE
@@ -303,13 +282,10 @@ def _style_conclusion_slide(slide, title: str, bullets: list, theme: dict, slide
     p.alignment = PP_ALIGN.CENTER
     _styled_run(p, title, theme["accent"], 36, bold=True, font=theme["title_font"])
 
-    # Divider
     _add_rect(slide, 2.0, 1.9, 9.33, 0.06, theme["accent2"])
 
-    # Bullets centred
     _style_bullets_box(slide, bullets, theme, x=1.5, y=2.1, w=10.33, h=4.2)
 
-    # Slide num
     pill = _add_rect(slide, 12.55, 0.2, 0.55, 0.45, theme["accent"])
     pill_tf = pill.text_frame
     pill_p = pill_tf.paragraphs[0]
@@ -365,7 +341,6 @@ async def write_text_to_slide(slide_index: int, title: str, content: list,
             )
         }
 
-    # Coerce content items to plain strings
     clean_content = [str(item).strip() for item in (content or []) if item is not None]
     if not clean_content:
         clean_content = [f"Key information about {title}"]
@@ -396,8 +371,7 @@ async def add_image_placeholder(slide_index: int, placeholder_text: str = "[Imag
     if slide_index < 0 or slide_index >= len(slides):
         return {"status": "error", "message": f"slide_index {slide_index} out of range"}
     slide = slides[slide_index]
-    _style_image_placeholder(slide, _active_theme,
-                              x=1.5, y=2.0, w=10.33, h=4.0,
+    _style_image_placeholder(slide, _active_theme, x=1.5, y=2.0, w=10.33, h=4.0,
                               caption=placeholder_text)
     return {"status": "success", "message": "Image placeholder added"}
 

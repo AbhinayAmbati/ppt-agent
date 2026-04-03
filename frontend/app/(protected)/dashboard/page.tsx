@@ -66,6 +66,7 @@ export default function DashboardPage() {
               onSubmit={handleGeneratePPT}
               isLoading={isGenerating}
               hasError={status === 'error'}
+              isSuccess={status === 'completed'}
             />
           </div>
 

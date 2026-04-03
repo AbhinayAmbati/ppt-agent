@@ -1,21 +1,30 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Send, Trash2 } from 'lucide-react';
 
 interface PromptInputProps {
   onSubmit: (prompt: string) => void;
   isLoading: boolean;
   hasError?: boolean;
+  isSuccess?: boolean;
 }
 
 export function PromptInput({
   onSubmit,
   isLoading,
   hasError = false,
+  isSuccess = false,
 }: PromptInputProps) {
   const [prompt, setPrompt] = useState('');
   const [charCount, setCharCount] = useState(0);
+
+  useEffect(() => {
+    if (isSuccess) {
+      setPrompt('');
+      setCharCount(0);
+    }
+  }, [isSuccess]);
 
   const maxChars = 1000;
   const minChars = 10;

@@ -72,7 +72,7 @@ export default function DashboardPage() {
           {/* Tips */}
           <div className="bg-secondary/40 rounded-xl p-6 border border-border/40">
             <h3 className="font-medium flex items-center gap-2 text-foreground mb-3">
-              💡 Tips for better results
+              Tips for better results
             </h3>
             <ul className="text-sm text-muted-foreground space-y-2">
               <li>• Be specific about your topic and keywords</li>
@@ -109,9 +109,6 @@ export default function DashboardPage() {
             ) : (
               /* Empty State */
               <div className="bg-card rounded-2xl p-8 border border-border/50 shadow-sm text-center">
-                <div className="w-16 h-16 bg-background border border-border rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-2xl">✨</span>
-                </div>
                 <h3 className="font-semibold text-lg text-foreground mb-2">
                   Ready to Create?
                 </h3>
@@ -120,7 +117,7 @@ export default function DashboardPage() {
                 </p>
                 <div className="mt-6 pt-6 border-t border-border/40">
                   <p className="text-xs text-muted-foreground">
-                    ⏱️ Average generation time: 30-60 seconds
+                    Average generation time: 30-60 seconds
                   </p>
                 </div>
               </div>

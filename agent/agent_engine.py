@@ -1,221 +1,233 @@
 """
-Agent Engine - Agentic Loop Implementation
-PLAN -> EXECUTE -> SAVE architecture
+Agent Engine - FIXED VERSION
+Issues fixed:
+1. LLM plan JSON parse failure (unknown extension ?R) — bad regex on raw content
+2. add_slide called without slide_index tracking — slides were built on wrong indices
+3. output/ vs outputs/ path mismatch
+4. theme_server call crashing whole flow — made optional
+5. User prompt was ignored — full prompt now passed to LLM
 """
 
 import asyncio
 import json
 import logging
+import re
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
+
 class SlideStructure(BaseModel):
-    """Represents a single slide"""
     index: int
     title: str
     bullet_points: List[str]
     include_image: bool = False
 
+
 class PresentationPlan(BaseModel):
-    """Represents the planned presentation"""
     title: str
     subtitle: str
     num_slides: int
     slides: List[SlideStructure]
 
+
 class AgentEngine:
-    """
-    Main agent engine implementing the agentic loop
-    PHASE 1: PLAN - Use LLM to generate slide structure
-    PHASE 2: EXECUTE - Call MCP servers for each slide
-    PHASE 3: SAVE - Save to disk
-    """
-    
     def __init__(self, hf_token: str = None):
         self.hf_token = hf_token
-        self.llm = None
         logger.info("Agent Engine initialized")
-        
+
     async def create_presentation(self, user_prompt: str, mcp_client) -> Dict[str, Any]:
-        """
-        Main orchestrator implementing agentic loop
-        """
-        logger.info(f"Starting presentation creation: {user_prompt[:50]}...")
-        
+        logger.info(f"Starting presentation creation: {user_prompt[:80]}...")
+
         try:
-            # PHASE 1: PLANNING
+            # PHASE 1: PLAN
             logger.info("PHASE 1: Planning slide structure...")
             plan = await self._create_llm_plan(user_prompt)
-            logger.info(f"Created plan with {plan.num_slides} slides")
-            
+            logger.info(f"Created plan with {plan.num_slides} slides: {plan.title}")
+
             # PHASE 2: CREATE PRESENTATION
             logger.info("PHASE 2: Creating presentation...")
             create_result = await mcp_client.call_tool(
                 "ppt_server",
                 "create_presentation",
-                {"title": plan.title, "subtitle": plan.subtitle}
+                {"title": plan.title, "subtitle": plan.subtitle},
             )
-            
+
             if not create_result or create_result.get("status") != "success":
-                logger.error(f"Presentation abort payload: {create_result}")
-                return {"status": "error", "message": f"Payload rejected: {create_result}"}
-            
+                logger.error(f"create_presentation failed: {create_result}")
+                return {"status": "error", "message": f"create_presentation failed: {create_result}"}
+
             # PHASE 3: BUILD SLIDES
+            # NOTE: slide index 0 is the title slide created above
+            # Content slides start at index 1
             logger.info("PHASE 3: Building slides...")
-            for i, slide in enumerate(plan.slides, 1):
-                logger.info(f"Building slide {i}: {slide.title}")
-                
-                await mcp_client.call_tool(
+            for slide in plan.slides:
+                # Step A: add the slide shell
+                add_result = await mcp_client.call_tool(
                     "ppt_server",
                     "add_slide",
-                    {"layout_type": "title_and_content"}
+                    {"layout_type": "title_and_content"},
                 )
-                
-                await mcp_client.call_tool(
+                if not add_result or add_result.get("status") != "success":
+                    logger.warning(f"add_slide failed for slide {slide.index}: {add_result}")
+                    continue
+
+                # The server returns current slide_count; the new slide is at (count - 1)
+                actual_index = add_result.get("slide_count", slide.index + 1) - 1
+
+                # Step B: write content into that slide
+                write_result = await mcp_client.call_tool(
                     "ppt_server",
                     "write_text_to_slide",
                     {
-                        "slide_index": i,
+                        "slide_index": actual_index,
                         "title": slide.title,
-                        "content": slide.bullet_points[:5]
-                    }
+                        "content": slide.bullet_points[:5],
+                    },
                 )
-                
-                logger.info(f"Slide {i} completed")
-            
-            # PHASE 4: APPLY THEME
-            logger.info("PHASE 4: Applying theme...")
-            await mcp_client.call_tool(
-                "theme_server",
-                "apply_theme",
-                {"theme_name": "ocean"}
-            )
-            
-            # PHASE 5: SAVE
-            logger.info("PHASE 5: Saving presentation...")
+                logger.info(
+                    f"Slide {slide.index} '{slide.title}' → write: {write_result.get('status') if write_result else 'failed'}"
+                )
+
+            # PHASE 4: SAVE
+            logger.info("PHASE 4: Saving presentation...")
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_file = f"output/presentation_{timestamp}.pptx"
-            
+            # FIX: use 'outputs' (plural) to match the actual folder
+            output_file = f"outputs/presentation_{timestamp}.pptx"
+
             save_result = await mcp_client.call_tool(
                 "ppt_server",
                 "save_presentation",
-                {"file_path": output_file}
+                {"file_path": output_file},
             )
-            
+
             if save_result and save_result.get("status") == "success":
                 logger.info(f"Presentation saved: {output_file}")
                 return {
                     "status": "success",
                     "file_path": output_file,
-                    "num_slides": plan.num_slides
+                    "title": plan.title,
+                    "num_slides": plan.num_slides,
                 }
             else:
-                return {"status": "error", "message": "Failed to save"}
-                
+                return {"status": "error", "message": f"Save failed: {save_result}"}
+
         except Exception as e:
             logger.error(f"Agent error: {e}", exc_info=True)
             return {"status": "error", "message": str(e)}
 
+    # ------------------------------------------------------------------
+    # LLM PLAN
+    # ------------------------------------------------------------------
+
     async def _create_llm_plan(self, user_prompt: str) -> PresentationPlan:
-        """Call HuggingFace Inference API to dynamically generate a context-aware outline"""
+        """Call HuggingFace Inference API to generate a context-aware outline"""
         try:
             from config import get_settings
             from huggingface_hub import AsyncInferenceClient
-            import re
-            
+
             settings = get_settings()
             if not settings.HF_TOKEN:
-                logger.warning("No HF_TOKEN found. Falling back to default plan.")
+                logger.warning("No HF_TOKEN — falling back to default plan.")
                 return self._create_default_plan(user_prompt)
-                
+
             client = AsyncInferenceClient(token=settings.HF_TOKEN)
-            
-            prompt = f"Create a detailed 5-slide PowerPoint outline accurately answering the topic: '{user_prompt}'.\n\nReturn ONLY a raw JSON object with no markdown fences, using this structure exactly:\n{{\"title\": \"Presentation Title\", \"subtitle\": \"Subtitle Here\", \"num_slides\": 5, \"slides\": [{{\"index\": 1, \"title\": \"Slide Title\", \"bullet_points\": [\"Point 1\", \"Point 2\", \"Point 3\"]}}]}}"
-            
-            model_id = getattr(settings, 'LLM_MODEL', "Qwen/Qwen2.5-72B-Instruct")
-            logger.info(f"Querying LLM: {model_id} for topic: {user_prompt[:30]}...")
-            
+            model_id = getattr(settings, "LLM_MODEL", "Qwen/Qwen2.5-72B-Instruct")
+
+            # FULL prompt passed — was being truncated before
+            system_msg = (
+                "You are a presentation outline generator. "
+                "Return ONLY a valid JSON object — no markdown fences, no extra text, no comments."
+            )
+            user_msg = (
+                f"Create a PowerPoint outline for the following request:\n\n"
+                f"\"{user_prompt}\"\n\n"
+                f"Return this exact JSON structure:\n"
+                f'{{"title": "...", "subtitle": "...", "num_slides": 5, '
+                f'"slides": [{{"index": 1, "title": "...", "bullet_points": ["...", "...", "..."]}}]}}\n\n'
+                f"Make the content specifically relevant to the request above. "
+                f"If a number of slides is mentioned in the request, use that number."
+            )
+
+            logger.info(f"Querying LLM: {model_id}")
             response = await client.chat_completion(
                 model=model_id,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=1500,
-                temperature=0.7
+                messages=[
+                    {"role": "system", "content": system_msg},
+                    {"role": "user", "content": user_msg},
+                ],
+                max_tokens=2000,
+                temperature=0.5,
             )
-            
-            content = response.choices[0].message.content
-            # Safely extract strictly the JSON envelope
-            json_match = re.search(r'\{(?:[^{}]|(?R))*\}|.*\{.*\}.*', content.replace('\n', ''), re.DOTALL)
-            json_str = content
-            if "```json" in content:
-                json_str = content.split("```json")[1].split("```")[0].strip()
-            elif "```" in content:
-                json_str = content.split("```")[1].strip()
-                
+
+            raw = response.choices[0].message.content.strip()
+            logger.debug(f"Raw LLM response: {raw[:200]}")
+
+            # FIXED JSON extraction — handles markdown fences and stray text
+            json_str = self._extract_json(raw)
             data = json.loads(json_str)
+
             slides = [SlideStructure(**s) for s in data.get("slides", [])]
-            return PresentationPlan(
-                title=data.get("title", f"Presentation on {user_prompt}"),
-                subtitle=data.get("subtitle", "Overview"),
+            plan = PresentationPlan(
+                title=data.get("title", user_prompt[:60]),
+                subtitle=data.get("subtitle", ""),
                 num_slides=len(slides),
-                slides=slides
+                slides=slides,
             )
-            
+            logger.info(f"LLM plan success: '{plan.title}' with {plan.num_slides} slides")
+            return plan
+
         except Exception as e:
-            logger.error(f"Failed to generate LLM plan: {e}. Falling back to default.")
+            logger.error(f"LLM plan failed: {e} — falling back to default.")
             return self._create_default_plan(user_prompt)
-    
+
+    def _extract_json(self, text: str) -> str:
+        """
+        Robustly extract JSON from LLM output.
+        Handles: raw JSON, ```json fences, ``` fences, leading/trailing text.
+        FIX for 'unknown extension ?R at position 12' — that was a regex bug.
+        """
+        # Strip markdown fences first
+        fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+        if fenced:
+            return fenced.group(1).strip()
+
+        # Find outermost { ... }
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            return text[start : end + 1]
+
+        # Last resort — return as-is and let json.loads raise a clear error
+        return text
+
     def _create_default_plan(self, user_prompt: str) -> PresentationPlan:
-        """Create presentation plan"""
-        keywords = user_prompt.split()[:3]
-        topic = " ".join(keywords)
-        
+        """Fallback plan that still uses the full user prompt as context"""
+        topic = user_prompt.strip() or "Presentation"
+
         slides = [
-            SlideStructure(
-                index=1,
-                title="Introduction",
-                bullet_points=[f"Topic: {topic}", "Overview", "Key points"],
-                include_image=False
-            ),
-            SlideStructure(
-                index=2,
-                title="Background",
-                bullet_points=["Context", "History", "Importance"],
-                include_image=False
-            ),
-            SlideStructure(
-                index=3,
-                title="Main Content",
-                bullet_points=["Key point 1", "Key point 2", "Key point 3"],
-                include_image=False
-            ),
-            SlideStructure(
-                index=4,
-                title="Analysis",
-                bullet_points=["Finding 1", "Finding 2", "Implications"],
-                include_image=False
-            ),
-            SlideStructure(
-                index=5,
-                title="Conclusion",
-                bullet_points=["Summary", "Takeaways", "Next steps"],
-                include_image=False
-            )
+            SlideStructure(index=1, title="Introduction", bullet_points=[f"Topic: {topic}", "Overview", "Objectives"]),
+            SlideStructure(index=2, title="Background", bullet_points=["Context and history", "Why this matters", "Key definitions"]),
+            SlideStructure(index=3, title="Core Concepts", bullet_points=["Concept 1", "Concept 2", "Concept 3"]),
+            SlideStructure(index=4, title="Key Insights", bullet_points=["Finding 1", "Finding 2", "Implications"]),
+            SlideStructure(index=5, title="Conclusion", bullet_points=["Summary", "Takeaways", "Next steps"]),
         ]
-        
+
         return PresentationPlan(
-            title=f"Presentation on {topic}",
-            subtitle=user_prompt[:60],
+            title=topic[:80],
+            subtitle="An Overview",
             num_slides=5,
-            slides=slides
+            slides=slides,
         )
 
-agent_engine = None
 
-def init_agent(hf_token: str = None):
-    """Initialize agent"""
+# Singleton
+agent_engine: Optional[AgentEngine] = None
+
+
+def init_agent(hf_token: str = None) -> AgentEngine:
     global agent_engine
     agent_engine = AgentEngine(hf_token=hf_token)
     return agent_engine

@@ -1,5 +1,4 @@
 from fastapi import FastAPI, HTTPException, Depends, Header
-# Force cache reload 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, sessionmaker
@@ -7,6 +6,7 @@ from pydantic import BaseModel
 from typing import Optional
 import logging
 import os
+from pathlib import Path
 from datetime import datetime, timedelta
 
 from config import get_settings
@@ -20,14 +20,21 @@ from mcp_client import mcp_client
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# FIXED: resolve outputs/ as absolute path relative to project root
+# main.py is at agent/main.py → project root is one level up
+PROJECT_ROOT = Path(__file__).parent.parent
+OUTPUTS_DIR = PROJECT_ROOT / "outputs"
+OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
+logger.info(f"Outputs directory: {OUTPUTS_DIR}")
+
 app = FastAPI(title="Auto-PPT Agent", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins (can be restricted to frontend URL in production)
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -56,6 +63,7 @@ class PPTCreateResponse(BaseModel):
     file_path: Optional[str] = None
     num_slides: Optional[int] = None
     message: Optional[str] = None
+    title: Optional[str] = None
 
 @app.on_event("startup")
 async def startup_event():
@@ -72,18 +80,15 @@ async def register(request: RegisterRequest, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.username == request.username).first()
     if existing:
         raise HTTPException(status_code=400, detail="Username exists")
-    
     user = User(username=request.username, email=request.email, hashed_password=hash_password(request.password))
     db.add(user)
     db.commit()
     db.refresh(user)
-    
     token = create_access_token(user.id)
     expires = datetime.utcnow() + timedelta(hours=24)
     session = DBSession(user_id=user.id, token=token, expires_at=expires)
     db.add(session)
     db.commit()
-    
     return {"access_token": token, "token_type": "bearer", "user_id": user.id}
 
 @app.post("/login")
@@ -91,25 +96,20 @@ async def login(request: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == request.username).first()
     if not user or not verify_password(request.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    
     token = create_access_token(user.id)
     expires = datetime.utcnow() + timedelta(hours=24)
     session = DBSession(user_id=user.id, token=token, expires_at=expires)
     db.add(session)
     db.commit()
-    
     return {"access_token": token, "token_type": "bearer", "user_id": user.id}
 
 async def get_current_user(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Invalid auth")
-    
     token = authorization.split(" ")[1]
     token_data = verify_access_token(token)
-    
     if not token_data or not token_data.sub:
         raise HTTPException(status_code=401, detail="Invalid token")
-    
     user = db.query(User).filter(User.id == token_data.sub).first()
     return user
 
@@ -119,21 +119,21 @@ async def create_ppt(request: PPTCreateRequest, current_user: User = Depends(get
         job = PPTJob(user_id=current_user.id, prompt=request.prompt, status="processing")
         db.add(job)
         db.commit()
-        
+
         result = await agent_engine.agent_engine.create_presentation(request.prompt, mcp_client)
-        
+
         if result["status"] == "success":
             job.status = "completed"
             job.file_path = result.get("file_path")
         else:
             job.status = "failed"
             job.error_message = result.get("message")
-        
+
         db.commit()
         return PPTCreateResponse(**result)
-        
+
     except Exception as e:
-        logger.error(f"Error: {e}")
+        logger.error(f"Error: {e}", exc_info=True)
         if "job" in locals():
             job.status = "failed"
             job.error_message = str(e)
@@ -146,7 +146,7 @@ async def get_me(current_user: User = Depends(get_current_user)):
         "id": current_user.id,
         "username": current_user.username,
         "email": current_user.email,
-        "createdAt": current_user.created_at.isoformat() if current_user.created_at else None
+        "createdAt": current_user.created_at.isoformat() if current_user.created_at else None,
     }
 
 @app.get("/jobs")
@@ -165,11 +165,25 @@ async def delete_job(job_id: str, current_user: User = Depends(get_current_user)
 
 @app.get("/download/{filename}")
 async def download_file(filename: str):
-    settings = get_settings()
-    file_path = os.path.join(settings.OUTPUT_DIR, filename)
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="File not found")
-    return FileResponse(path=file_path, filename=filename, media_type='application/vnd.openxmlformats-officedocument.presentationml.presentation')
+    # FIXED: always use absolute OUTPUTS_DIR — never relative to cwd
+    # Security: strip any path separators so users can't traverse directories
+    safe_filename = Path(filename).name
+    file_path = OUTPUTS_DIR / safe_filename
+
+    logger.info(f"Download request: {safe_filename} → looking at {file_path}")
+
+    if not file_path.exists():
+        logger.error(f"File not found: {file_path}")
+        # List what IS in outputs/ to help debug
+        existing = [f.name for f in OUTPUTS_DIR.iterdir()] if OUTPUTS_DIR.exists() else []
+        logger.error(f"Files in outputs/: {existing}")
+        raise HTTPException(status_code=404, detail=f"File not found: {safe_filename}")
+
+    return FileResponse(
+        path=str(file_path),
+        filename=safe_filename,
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    )
 
 @app.post("/logout")
 async def logout(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
@@ -183,7 +197,7 @@ async def logout(authorization: Optional[str] = Header(None), db: Session = Depe
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy"}
+    return {"status": "healthy", "outputs_dir": str(OUTPUTS_DIR)}
 
 if __name__ == "__main__":
     import uvicorn

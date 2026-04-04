@@ -29,7 +29,7 @@ export default function LandingPage() {
         </h1>
         
         <p className="text-lg md:text-xl text-muted-foreground text-center max-w-2xl mb-12 leading-relaxed">
-          Transform your ideas into beautiful, professional slides in seconds. Auto-PPT plans, designs, and refines your presentations autonomously.
+          Transform your ideas into beautiful, professional slides in seconds. SlideForage plans, designs, and refines your presentations autonomously.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center gap-4">

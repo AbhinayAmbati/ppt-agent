@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { Menu, LogOut, Settings, Sun, Moon, Presentation } from 'lucide-react';
+import { LogOut, Settings, Sun, Moon } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 export function Header() {
@@ -41,10 +41,7 @@ export function Header() {
         <div className="flex h-16 items-center justify-between">
           {/* Logo/Brand */}
           <Link href="/dashboard" className="flex items-center gap-3 group">
-            <div className="w-8 h-8 bg-foreground rounded-md flex items-center justify-center transition-transform group-hover:scale-105">
-              <Presentation className="w-4 h-4 text-background" />
-            </div>
-            <span className="font-serif text-xl font-medium tracking-tight">Auto-PPT</span>
+            <span className="font-serif text-xl font-medium tracking-tight">SlideForage</span>
           </Link>
 
           {/* Right Side Menu */}

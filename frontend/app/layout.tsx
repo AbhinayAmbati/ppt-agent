@@ -6,7 +6,7 @@ import { AuthProvider } from "@/context/AuthContext";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Auto-PPT Agent",
+  title: "SlideForage",
   description: "AI-powered presentation generation with agentic loop",
 };
 

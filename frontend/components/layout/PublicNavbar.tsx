@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
-import { Presentation } from 'lucide-react';
 
 export function PublicNavbar() {
   const { token } = useAuth();
@@ -10,10 +9,7 @@ export function PublicNavbar() {
   return (
     <header className="flex flex-row items-center justify-between px-8 py-6 max-w-7xl mx-auto w-full relative z-10 antialiased font-sans">
       <Link href="/" className="flex items-center gap-3 group">
-        <div className="w-8 h-8 bg-foreground rounded-md flex items-center justify-center transition-transform group-hover:scale-105">
-          <Presentation className="w-4 h-4 text-background" />
-        </div>
-        <span className="font-serif text-2xl font-medium tracking-tight">Auto-PPT</span>
+        <span className="font-serif text-2xl font-medium tracking-tight">SlideForage</span>
       </Link>
       <div className="flex items-center gap-4 text-sm font-medium">
         {token ? (

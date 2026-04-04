@@ -1,203 +1,398 @@
-# Auto-PPT Agent - FastAPI Application
+# 🤖 SlideForage - Backend Agent Engine
 
-> AI-powered presentation generation system that autonomously creates PowerPoint presentations from natural language prompts using an agentic loop with MCP server integration.
+> Intelligent FastAPI-based agent that orchestrates PowerPoint presentation generation through a 5-phase agentic loop with MCP server integration.
 
-**Version:** 1.0.0 | **Status:** Production Ready
+**Status:** Production Ready | **Version:** 1.0.0 | **Framework:** FastAPI + Python
 
 ---
 
-## Table of Contents
+## 📋 Table of Contents
 
-1. [What is Auto-PPT Agent?](#what-is-auto-ppt-agent)
-2. [System Architecture](#system-architecture)
-3. [Quick Start](#quick-start)
-4. [Configuration](#configuration)
-5. [API Documentation](#api-documentation)
-6. [Agentic Loop Explanation](#agentic-loop-explanation)
-7. [MCP Servers](#mcp-servers)
+1. [What is the Agent?](#what-is-the-agent)
+2. [Quick Start](#quick-start)
+3. [Configuration](#configuration)
+4. [The 5-Phase Agentic Loop](#the-5-phase-agentic-loop)
+5. [API Endpoints](#api-endpoints)
+6. [MCP Servers](#mcp-servers)
+7. [Database Models](#database-models)
 8. [Error Handling](#error-handling)
-9. [Troubleshooting](#troubleshooting)
-10. [Assignment Requirements](#assignment-requirements)
+9. [Deployment](#deployment)
+10. [Troubleshooting](#troubleshooting)
 
 ---
 
-## What is Auto-PPT Agent?
+## 🎯 What is the Agent?
 
-Auto-PPT Agent is an intelligent system that:
+The Agent Engine is the intelligent core of SlideForage. It:
 
-- **Takes a single sentence prompt** (e.g., "Create a 5-slide presentation on machine learning")
-- **Generates a complete PowerPoint presentation** (.pptx file) with:
-  - Professional slide structure
-  - Title pages
-  - Content slides with bullet points
-  - Web-sourced real-time content
-  - Consistent theming and styling
+1. **Receives user prompts** from the frontend
+2. **Plans presentation structure** intelligently
+3. **Orchestrates MCP servers** to execute the plan
+4. **Handles errors gracefully** with retry logic
+5. **Delivers complete PPTX files** to users
 
-- **Uses an agentic loop** (PLAN -> EXECUTE -> SAVE):
-  - First, the agent PLANS the entire slide structure
-  - Then, it EXECUTES by calling MCP servers to build each slide
-  - Finally, it SAVES the presentation to disk
+### Key Concept: Agentic Loop
 
-- **Handles errors gracefully**:
-  - If web search fails, uses planned content
-  - If one slide fails, continues with others
-  - Returns partial presentations rather than crashing
+The agent uses a **5-phase execution pipeline** (PLAN → CREATE → BUILD → THEME → SAVE) that ensures:
+- ✅ Structured planning before execution
+- ✅ Distributed computation across MCP servers
+- ✅ Graceful error handling and degradation
+- ✅ Professional, themed output
 
 ---
 
-## System Architecture
+## 🚀 Quick Start
 
-### High-Level Overview
+### Prerequisites
 
-```
-USER
-  |
-  v
-┌─────────────────────────────────┐
-│    FastAPI Web Server           │
-│  (Port 8000)                    │
-│                                 │
-│  /register  /login  /create-ppt │
-└─────────────┬───────────────────┘
-              |
-    ┌─────────┴─────────┐
-    |                   |
-    v                   v
-┌──────────────┐  ┌──────────────────┐
-│  Auth Layer  │  │  Agent Engine    │
-│  (JWT)       │  │  (Agentic Loop)  │
-│  (Database)  │  │                  │
-└──────────────┘  └────────┬─────────┘
-                           |
-        ┌──────────────────┼──────────────────┬──────────────────┐
-        |                  |                  |                  |
-        v                  v                  v                  v
-    ┌────────┐        ┌─────────┐      ┌──────────┐       ┌──────────┐
-    │   PPT  │        │   Web   │      │FileSystem│       │  Theme   │
-    │ Server │        │ Search  │      │  Server  │       │  Server  │
-    │ (MCP)  │        │ (MCP)   │      │  (MCP)   │       │  (MCP)   │
-    └────────┘        └─────────┘      └──────────┘       └──────────┘
-      6 tools           2 tools         4 tools            4 tools
-```
+- **Python 3.9+**
+- **pip** (Python package manager)
 
-### Component Breakdown
+### Installation Steps
 
-| Component | Purpose | Details |
-|-----------|---------|---------|
-| **main.py** | FastAPI application | Routes, endpoints, server startup |
-| **agent_engine.py** | Agentic loop | PLAN -> EXECUTE -> SAVE logic |
-| **mcp_client.py** | MCP communication | Calls to MCP servers with retry logic |
-| **models.py** | Database models | User, Session, PPTJob tables |
-| **auth.py** | Authentication | JWT tokens, password hashing |
-| **config.py** | Configuration | Environment variables |
-
----
-
-## Quick Start
-
-### Step 1: Setup Environment Variables
+#### Step 1: Create Virtual Environment
 ```bash
+cd agent
+
+# Create virtual environment
+python -m venv venv
+
+# Activate it
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# (Optional) Update pip
+pip install --upgrade pip
+```
+
+#### Step 2: Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+**What gets installed:**
+- `fastapi` - Web framework
+- `uvicorn` - ASGI server
+- `sqlalchemy` - Database ORM
+- `python-jose` & `bcrypt` - Authentication
+- `python-pptx` - PowerPoint manipulation
+- `duckduckgo-search` - Web search
+- `mcp` - Model Context Protocol
+
+#### Step 3: Configure Environment
+```bash
+# Copy template
 cp .env.example .env
 
-# Edit .env and configure:
-nano .env
+# Edit configuration
+nano .env  # Use your preferred editor
 ```
 
-**Essential .env variables:**
+**Essential .env Variables:**
 ```env
 HOST=0.0.0.0
 PORT=8000
 DEBUG=False
 DATABASE_URL=sqlite:///./ppt_agent.db
 SECRET_KEY=your-super-secret-key-change-in-production
-HF_TOKEN=your-huggingface-token-optional
+MCP_SERVERS_PATH=../mcp/servers
 ```
 
-### Step 2: Install Dependencies
-```bash
-# Install Python packages
-pip install -r requirements.txt
-
-# This installs:
-# - FastAPI & Uvicorn (web framework)
-# - SQLAlchemy (database ORM)
-# - python-jose & bcrypt (authentication)
-# - python-pptx (PowerPoint creation)
-# - duckduckgo-search (web search)
-# - mcp (Model Context Protocol)
-# - transformers & torch (LLM, optional)
-```
-
-### Step 3: Initialize Database
+#### Step 4: Initialize Database
 ```bash
 python -c "from models import init_db; init_db()"
 
-# Creates:
-# - users table (for user accounts)
-# - sessions table (for active sessions)
-# - ppt_jobs table (for tracking presentations)
+# Verify database created
+ls -la ppt_agent.db
 ```
 
-### Step 4: Start the Server
+#### Step 5: Start the Server
 ```bash
 # Method 1: Direct Python
 python main.py
 
-# Method 2: With Uvicorn (with auto-reload)
+# Method 2: With Uvicorn (recommended for development)
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### Step 5: Access the Application
-
+**Output:**
 ```
-Interactive API Docs (Swagger UI):
-  http://localhost:8000/docs
+INFO:     Uvicorn running on http://0.0.0.0:8000
+INFO:     Application startup complete
+```
 
-Alternative API Docs (ReDoc):
-  http://localhost:8000/redoc
+#### Step 6: Verify Installation
+```bash
+# In another terminal
+curl http://localhost:8000/health
 
-Health Check:
-  http://localhost:8000/health
+# Response:
+# {"status":"healthy","message":"Auto-PPT Agent is running"}
+```
+
+#### Step 7: Access API Docs
+```
+Interactive Docs: http://localhost:8000/docs
+Alternative Docs: http://localhost:8000/redoc
 ```
 
 ---
 
-## Configuration
+## ⚙️ Configuration
 
-### Environment Variables (.env)
+### Environment Variables
 
 ```env
-# Server Configuration
+# ===== SERVER CONFIGURATION =====
 HOST=0.0.0.0                          # Bind address
 PORT=8000                             # Port number
-DEBUG=False                           # Debug mode (set to True for development)
+DEBUG=False                           # Debug mode (True for development)
 
-# Database
-DATABASE_URL=sqlite:///./ppt_agent.db # SQLite (dev), use PostgreSQL for prod
+# ===== DATABASE =====
+DATABASE_URL=sqlite:///./ppt_agent.db # SQLite for dev
+# For production, use PostgreSQL:
+# DATABASE_URL=postgresql://user:pass@localhost/dbname
 
-# Security (CRITICAL!)
-SECRET_KEY=change-this-in-production  # JWT signing key (change immediately!)
+# ===== SECURITY (CRITICAL IN PRODUCTION!) =====
+SECRET_KEY=your-super-secret-key     # JWT signing key
+                                     # Generate new one: openssl rand -hex 32
 
-# Optional: HuggingFace Integration
-HF_TOKEN=your-huggingface-token-here # For accessing distilled models
+# ===== MCP SERVERS =====
+MCP_SERVERS_PATH=../mcp/servers      # Path to MCP server directory
 
-# MCP Servers Path
-MCP_SERVERS_PATH=../mcp/servers      # Path to MCP server scripts
+# ===== OPTIONAL =====
+HF_TOKEN=your-huggingface-token      # For accessing distilled models
 ```
 
 ### Production Checklist
 
-- [ ] Change `SECRET_KEY` in .env
+**Security:**
+- [ ] Change `SECRET_KEY` to a random, secure value
 - [ ] Set `DEBUG=False`
+- [ ] Use HTTPS/TLS (SSL certificate)
+- [ ] Use environment variables for all secrets
+
+**Database:**
 - [ ] Use PostgreSQL instead of SQLite
-- [ ] Enable HTTPS/TLS
-- [ ] Configure CORS properly
+- [ ] Configure database backups
+- [ ] Set up connection pooling
+
+**API:**
+- [ ] Configure CORS properly (specify allowed origins)
+- [ ] Set up rate limiting
+- [ ] Enable request logging
+
+**Operations:**
 - [ ] Set up log rotation
-- [ ] Configure backup strategy
+- [ ] Configure monitoring & alerting
+- [ ] Set up backup strategy
+- [ ] Test disaster recovery
 
 ---
 
-## API Documentation
+## 🔄 The 5-Phase Agentic Loop
+
+The agent executes presentation generation in 5 distinct phases:
+
+### Phase 1: PLANNING (1-2 seconds)
+
+**What Happens:**
+1. Agent receives user prompt: "Create 5-slide presentation on AI"
+2. Agent uses LLM reasoning to generate ideal slide structure
+3. Agent plans detailed outline with titles and bullet points
+
+**Example Plan:**
+```
+Slide 1: Introduction to AI
+  - Brief history
+  - Definition & scope
+  - Why important
+
+Slide 2: AI Techniques
+  - Machine Learning
+  - Deep Learning
+  - Neural Networks
+
+Slide 3: Real-world Applications
+  - Healthcare
+  - Finance
+  - Transportation
+
+Slide 4: Challenges & Ethics
+  - Privacy concerns
+  - Bias in AI
+  - Ethical considerations
+
+Slide 5: Future of AI
+  - Emerging trends
+  - Impact on society
+  - Call to action
+```
+
+**Why It Matters:**
+- Ensures coherent presentation structure
+- Prevents random/disconnected slide generation
+- Meets requirement: "Agent must plan before executing"
+
+**Code Location:** `agent_engine.py` Phase 1 section
+
+---
+
+### Phase 2: CREATE (< 1 second)
+
+**What Happens:**
+1. Agent calls MCP PPT Server: `create_presentation()`
+2. PowerPoint file created in memory
+3. Title slide added with main title and subtitle
+
+**MCP Call Example:**
+```json
+{
+  "tool": "create_presentation",
+  "arguments": {
+    "title": "Artificial Intelligence",
+    "subtitle": "A comprehensive overview"
+  }
+}
+```
+
+**Result:**
+- PowerPoint object ready for population
+- Title slide created
+
+**Code Location:** `agent_engine.py` Phase 2 section
+
+---
+
+### Phase 3: BUILD SLIDES (3-5 seconds for 5 slides)
+
+**What Happens:**
+For each slide in the plan:
+1. Call MCP PPT Server: `add_slide()` - Add blank slide
+2. (Optional) Call Web Search Server: `search_topic()` - Get real content
+3. Call PPT Server: `write_text_to_slide()` - Write title and bullets
+4. (Optional) Add image placeholder
+
+**Detailed Example for Slide 2:**
+```
+Build Slide 2 ("AI Techniques"):
+  1. add_slide(layout_type="title_and_content")
+     → New blank slide added
+
+  2. search_topic("AI Machine Learning Deep Learning Neural Networks")
+     → Web results: "ML is subset of AI...", "Deep learning uses artificial neurons..."
+     → Agent extracts and summarizes key points
+
+  3. write_text_to_slide(
+       slide_index=2,
+       title="AI Techniques",
+       content=[
+         "Machine Learning: Learn patterns from data",
+         "Deep Learning: Neural networks with multiple layers",
+         "Natural Language Processing: Understand human language"
+       ]
+     )
+     → Slide populated with content
+```
+
+**Graceful Error Handling:**
+- If web search fails → Use planned content (continue normally)
+- If one slide fails → Log error and continue with next slide
+- Result: Partial presentation still delivered
+
+**Code Location:** `agent_engine.py` Phase 3 section
+
+---
+
+### Phase 4: APPLY THEME (1 second)
+
+**What Happens:**
+1. Agent calls MCP Theme Server: `apply_theme()`
+2. Consistent styling applied across all slides
+3. Professional appearance guaranteed
+
+**MCP Call:**
+```json
+{
+  "tool": "apply_theme",
+  "arguments": {
+    "theme_name": "ocean"
+  }
+}
+```
+
+**Available Themes:**
+- `default` - Professional blue
+- `ocean` - Cool blue/teal
+- `forest` - Natural green
+- `sunset` - Warm orange
+- `midnight` - Dark blue/purple
+
+**Code Location:** `agent_engine.py` Phase 4 section
+
+---
+
+### Phase 5: SAVE & OUTPUT (< 1 second)
+
+**What Happens:**
+1. Generate timestamp-based filename: `presentation_YYYYMMDD_HHMMSS.pptx`
+2. Call MCP PPT Server: `save_presentation()`
+3. Save binary file to `outputs/` directory
+4. Return file path to user
+
+**MCP Call:**
+```json
+{
+  "tool": "save_presentation",
+  "arguments": {
+    "file_path": "output/presentation_20240405_153042.pptx"
+  }
+}
+```
+
+**Result:**
+- PPTX file saved to disk
+- Path returned to frontend
+- User can download
+
+**Code Location:** `agent_engine.py` Phase 5 section
+
+---
+
+### Complete Execution Timeline
+
+```
+User Input: "Create 5-slide presentation on machine learning"
+
+T+0s:    PHASE 1: PLANNING
+         Agent generates slide structure plan
+
+T+2s:    PHASE 2: CREATE
+         PowerPoint file created in memory
+
+T+3s:    PHASE 3: BUILD SLIDES
+         Slide 1: Added (no search needed for intro)
+         Slide 2: Added + web search executed
+         Slide 3: Added + web search executed
+         Slide 4: Added + web search executed
+         Slide 5: Added (conclusion)
+
+T+8s:    PHASE 4: APPLY THEME
+         Theme applied to all slides
+
+T+9s:    PHASE 5: SAVE
+         File saved to outputs/
+
+T+10s:   RESPONSE SENT
+         Return: {file_path: "output/presentation_20240405_153042.pptx"}
+
+[Total: ~10 seconds for complete generation]
+```
+
+---
+
+## 📡 API Endpoints
+
+Complete reference of all backend endpoints.
 
 ### Authentication Endpoints
 
@@ -206,7 +401,6 @@ MCP_SERVERS_PATH=../mcp/servers      # Path to MCP server scripts
 **Endpoint:**
 ```http
 POST /register HTTP/1.1
-Host: localhost:8000
 Content-Type: application/json
 
 {
@@ -216,19 +410,12 @@ Content-Type: application/json
 }
 ```
 
-**Response (Success - 200):**
+**Response (200):**
 ```json
 {
   "status": "success",
   "message": "User registered successfully",
   "user_id": "550e8400-e29b-41d4-a716-446655440000"
-}
-```
-
-**Response (Error - 400):**
-```json
-{
-  "detail": "Username already exists"
 }
 ```
 
@@ -245,12 +432,11 @@ curl -X POST "http://localhost:8000/register" \
 
 ---
 
-#### 2. Login
+#### 2. Login User
 
 **Endpoint:**
 ```http
 POST /login HTTP/1.1
-Host: localhost:8000
 Content-Type: application/json
 
 {
@@ -259,7 +445,7 @@ Content-Type: application/json
 }
 ```
 
-**Response (Success - 200):**
+**Response (200):**
 ```json
 {
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -277,7 +463,7 @@ curl -X POST "http://localhost:8000/login" \
     "password": "secure_password_123"
   }'
 
-# Save the access_token for next requests
+# Save token for future requests
 export TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 ```
 
@@ -290,7 +476,6 @@ export TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 **Endpoint:**
 ```http
 POST /create-ppt HTTP/1.1
-Host: localhost:8000
 Authorization: Bearer YOUR_ACCESS_TOKEN
 Content-Type: application/json
 
@@ -299,21 +484,13 @@ Content-Type: application/json
 }
 ```
 
-**Response (Success - 200):**
+**Response (200):**
 ```json
 {
   "status": "success",
-  "file_path": "output/presentation_20240402_153042.pptx",
+  "file_path": "output/presentation_20240405_153042.pptx",
   "num_slides": 5,
   "message": "Presentation created successfully"
-}
-```
-
-**Response (Processing Error - 400):**
-```json
-{
-  "status": "error",
-  "message": "Failed to create presentation: [error details]"
 }
 ```
 
@@ -327,15 +504,22 @@ curl -X POST "http://localhost:8000/create-ppt" \
   }'
 ```
 
-**Timeline during request:**
+**What Happens Behind the Scenes:**
 ```
-T+0s:   Agent starts planning
-T+1-2s: Slide structure determined
-T+2-3s: PowerPoint file created
-T+3-8s: Slides built (one per second)
-T+8-9s: Theme applied
-T+9-10s: File saved to disk
-T+10s:  Response returned to user
+T+0s:   Request received
+        Job created in database (status: pending)
+
+T+1-2s: Phase 1: Agent plans structure
+
+T+2-3s: Phase 2: PowerPoint created
+
+T+3-8s: Phase 3: Slides built with web content
+
+T+8-9s: Phase 4: Theme applied
+
+T+9-10s: Phase 5: File saved
+
+T+10s:  Response returned with file path
 ```
 
 ---
@@ -344,18 +528,19 @@ T+10s:  Response returned to user
 
 **Endpoint:**
 ```http
-GET /download/presentation_20240402_153042.pptx HTTP/1.1
-Host: localhost:8000
+GET /download/presentation_20240405_153042.pptx HTTP/1.1
 Authorization: Bearer YOUR_ACCESS_TOKEN
 ```
 
-**Response:** Binary .pptx file
+**Response:** Binary PPTX file (downloaded to client machine)
 
 **cURL Example:**
 ```bash
-curl -X GET "http://localhost:8000/download/presentation_20240402_153042.pptx" \
+curl -X GET "http://localhost:8000/download/presentation_20240405_153042.pptx" \
   -H "Authorization: Bearer $TOKEN" \
   -o my_presentation.pptx
+
+# File saved as: my_presentation.pptx
 ```
 
 ---
@@ -365,11 +550,10 @@ curl -X GET "http://localhost:8000/download/presentation_20240402_153042.pptx" \
 **Endpoint:**
 ```http
 GET /jobs HTTP/1.1
-Host: localhost:8000
 Authorization: Bearer YOUR_ACCESS_TOKEN
 ```
 
-**Response (Success - 200):**
+**Response (200):**
 ```json
 {
   "status": "success",
@@ -378,25 +562,27 @@ Authorization: Bearer YOUR_ACCESS_TOKEN
       "id": "job-uuid-123",
       "prompt": "Create a 5-slide presentation on machine learning",
       "status": "completed",
-      "created_at": "2024-04-02T15:30:42.123456",
-      "file_path": "output/presentation_20240402_153042.pptx"
+      "created_at": "2024-04-05T15:30:42.123456",
+      "file_path": "output/presentation_20240405_153042.pptx",
+      "num_slides": 5
     },
     {
       "id": "job-uuid-456",
       "prompt": "Create presentation on Python",
       "status": "failed",
-      "created_at": "2024-04-02T14:20:00.123456",
-      "file_path": null
+      "created_at": "2024-04-05T14:20:00.123456",
+      "file_path": null,
+      "error": "Web search service unavailable"
     }
   ]
 }
 ```
 
 **Job Status Values:**
-- `pending` - Queued, not started
+- `pending` - Queued, not started yet
 - `processing` - Currently generating
-- `completed` - Successfully created
-- `failed` - Error during creation
+- `completed` - Successfully created, ready for download
+- `failed` - Error occurred during creation
 
 **cURL Example:**
 ```bash
@@ -406,19 +592,51 @@ curl -X GET "http://localhost:8000/jobs" \
 
 ---
 
-#### 6. Health Check
+#### 6. Get Specific Job Status
+
+**Endpoint:**
+```http
+GET /jobs/{job_id} HTTP/1.1
+Authorization: Bearer YOUR_ACCESS_TOKEN
+```
+
+**Response (200):**
+```json
+{
+  "status": "success",
+  "job": {
+    "id": "job-uuid-123",
+    "prompt": "Create a 5-slide presentation on AI",
+    "status": "completed",
+    "progress": 100,
+    "current_phase": "SAVE",
+    "created_at": "2024-04-05T15:30:42",
+    "completed_at": "2024-04-05T15:30:52",
+    "file_path": "output/presentation_20240405_153042.pptx"
+  }
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:8000/jobs/job-uuid-123" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+#### 7. Health Check
 
 **Endpoint:**
 ```http
 GET /health HTTP/1.1
-Host: localhost:8000
 ```
 
 **Response (200):**
 ```json
 {
   "status": "healthy",
-  "message": "Auto-PPT Agent is running"
+  "message": "SlideForage Agent is running"
 }
 ```
 
@@ -429,326 +647,280 @@ curl http://localhost:8000/health
 
 ---
 
-## Agentic Loop Explanation
+## 🔗 MCP Servers
 
-The agentic loop is the core innovation of this system. It ensures intelligent planning before execution.
+The agent communicates with 4 specialized MCP servers through the MCP client.
 
-### The 5 Phases
-
-#### PHASE 1: PLANNING (1-2 seconds)
-**What happens:**
-- Agent receives user prompt: "Create 5-slide presentation on AI"
-- Agent uses LLM to generate ideal slide structure:
-  - Slide 1: Introduction to AI (title + 3 bullets)
-  - Slide 2: History of AI (title + 3 bullets)
-  - Slide 3: Current Applications (title + 3 bullets)
-  - Slide 4: Challenges (title + 3 bullets)
-  - Slide 5: Future of AI (title + 3 bullets)
-
-**Why it matters:**
-- Ensures coherent presentation structure
-- Prevents random slide generation
-- Meets assignment requirement: "Agent must plan before executing"
-
-**Code Location:** `agent_engine.py` line ~80-120
-
----
-
-#### PHASE 2: CREATE PRESENTATION (<1 second)
-**What happens:**
-- Calls MCP PPT Server: `create_presentation()`
-- Creates new PowerPoint file in memory
-- Adds title slide with main title and subtitle
-
-**Example MCP Call:**
-```json
-{
-  "tool": "create_presentation",
-  "arguments": {
-    "title": "Artificial Intelligence",
-    "subtitle": "A comprehensive overview"
-  }
-}
-```
-
-**Code Location:** `agent_engine.py` line ~125
-
----
-
-#### PHASE 3: BUILD SLIDES (3-5 seconds for 5 slides)
-**What happens:**
-For each slide in the plan:
-1. Add new slide to PowerPoint
-2. (Optional) Search web for real content about that slide topic
-3. Write title and bullet points to slide
-4. Add image placeholder if needed
-
-**Example for Slide 2:**
-```
-Step 1: add_slide(layout_type="title_and_content")
-Step 2: search_topic("History of AI") -> gets web results
-Step 3: write_text_to_slide(
-  slide_index=2,
-  title="History of AI",
-  content=[
-    "1950s: Dartmouth Conference founded AI",
-    "1970s: First AI winter",
-    "2010s: Deep learning revolution"
-  ]
-)
-```
-
-**Graceful Error Handling:**
-- If web search fails -> Use planned content (continue normally)
-- If slide creation fails -> Log error and continue with next slide
-- Result: Partial presentation still delivered
-
-**Code Location:** `agent_engine.py` line ~130-160
-
----
-
-#### PHASE 4: APPLY THEME (1 second)
-**What happens:**
-- Calls MCP Theme Server: `apply_theme("ocean")`
-- Sets consistent colors across all slides
-- Options: default, ocean, forest, sunset, midnight
-
-**Example:**
-```json
-{
-  "tool": "apply_theme",
-  "arguments": {
-    "theme_name": "ocean"
-  }
-}
-```
-
-**Code Location:** `agent_engine.py` line ~165
-
----
-
-#### PHASE 5: SAVE (<1 second)
-**What happens:**
-- Generates filename with timestamp: `presentation_YYYYMMDD_HHMMSS.pptx`
-- Calls MCP PPT Server: `save_presentation(file_path)`
-- Saves binary file to `output/` directory
-- Returns file path to user
-
-**Example:**
-```json
-{
-  "tool": "save_presentation",
-  "arguments": {
-    "file_path": "output/presentation_20240402_153042.pptx"
-  }
-}
-```
-
-**Code Location:** `agent_engine.py` line ~170-175
-
----
-
-### Complete Execution Flow
+### How MCP Integration Works
 
 ```
-User Input:
-  "Create 5-slide presentation on machine learning"
-
-↓
-
-PHASE 1: PLANNING (Agent thinks)
-  Generate: 5 slides structure with titles and bullets
-
-↓
-
-PHASE 2: CREATE (Initialize)
-  Create PowerPoint file in memory
-
-↓
-
-PHASE 3: BUILD (Populate slides)
-  Slide 1: Introduction
-    - add_slide()
-    - [web search for "Introduction to ML"]
-    - write_text_to_slide()
-
-  Slide 2: Fundamentals
-    - add_slide()
-    - [web search for "ML Fundamentals"]
-    - write_text_to_slide()
-
-  ... (repeat for slides 3-5)
-
-↓
-
-PHASE 4: THEME (Style)
-  apply_theme("ocean")
-
-↓
-
-PHASE 5: SAVE (Output)
-  save_presentation("output/presentation_20240402_153042.pptx")
-
-↓
-
-Return to User:
-  "Success! File: presentation_20240402_153042.pptx"
-
-Result: presentation_20240402_153042.pptx (ready to download)
+Agent Engine
+    ↓
+MCP Client (mcp_client.py)
+    ↓
+[Startup MCP Servers as Subprocesses]
+    ↓
+┌─────────────────────────────────────────────────┐
+│  4 MCP Servers (running in parallel)            │
+├─────────────────────────────────────────────────┤
+│  1. PPT Server       - PowerPoint manipulation  │
+│  2. Web Search       - Content fetching         │
+│  3. Filesystem       - File I/O                 │
+│  4. Theme Server     - Styling                  │
+└─────────────────────────────────────────────────┘
+    ↓
+[Servers respond to tool calls]
+    ↓
+Agent processes results
 ```
 
----
+### Server Details
 
-## MCP Servers
+**See detailed MCP documentation:** [mcp/README.md](../mcp/README.md)
 
-The system uses 4 distributed MCP servers (16 tools total).
-
-### 1. PPT Server (6 tools)
-**Location:** `mcp/servers/1.ppt_server.py`
-
-| Tool | Purpose | Example |
-|------|---------|---------|
-| `create_presentation` | Initialize .pptx file | `create_presentation(title="My Presentation")` |
-| `add_slide` | Add new slide | `add_slide(layout_type="title_and_content")` |
-| `write_text_to_slide` | Add title and bullets | `write_text_to_slide(slide_index=1, title="Section", content=[...])` |
-| `add_image_placeholder` | Insert image placeholder | `add_image_placeholder(slide_index=2, text="[Insert diagram]")` |
-| `save_presentation` | Save to disk | `save_presentation(file_path="output/pres.pptx")` |
-| `get_presentation_info` | Get metadata | `get_presentation_info()` returns slide count |
+| Server | Location | Tools | Purpose |
+|--------|----------|-------|---------|
+| **1. PPT Server** | `mcp/servers/1.ppt_server.py` | 6 | PowerPoint creation |
+| **2. Web Search** | `mcp/servers/2.web_search_server.py` | 2 | Web search & content |
+| **3. Filesystem** | `mcp/servers/3.filesystem_server.py` | 4 | File operations |
+| **4. Theme Server** | `mcp/servers/4.theme_server.py` | 4 | Styling & themes |
 
 ---
 
-### 2. Web Search Server (2 tools)
-**Location:** `mcp/servers/2.web_search_server.py`
+## 📊 Database Models
 
-| Tool | Purpose | Example |
-|------|---------|---------|
-| `search_topic` | Search for content | `search_topic(topic="Machine Learning", max_results=3)` |
-| `fetch_page_summary` | Summarize webpage | `fetch_page_summary(url="https://example.com")` |
+The agent uses SQLAlchemy ORM for database operations.
 
-**Benefits:**
-- Real-time, current information
-- Supports every slide topic
-- Gracefully fails (reverts to planned content)
+### Models Overview
 
----
+#### 1. User Model
 
-### 3. Filesystem Server (4 tools)
-**Location:** `mcp/servers/3.filesystem_server.py`
+```python
+class User(Base):
+    __tablename__ = "users"
 
-| Tool | Purpose | Example |
-|------|---------|---------|
-| `save_file` | Save file to disk | `save_file(file_path="output/data.txt", content="...")` |
-| `list_output_files` | List saved files | `list_output_files()` |
-| `get_file_path` | Get absolute path | `get_file_path(file_name="presentation.pptx")` |
-| `delete_file` | Remove file | `delete_file(file_path="output/old.pptx")` |
+    id: str              # UUID primary key
+    username: str        # Unique username
+    email: str          # Unique email
+    hashed_password: str # bcrypt hashed
+    created_at: datetime # Account creation time
+    updated_at: datetime # Last update
 
-**Isolation:**
-- All disk I/O goes through this server
-- PPT Server stays pure (only creates in-memory)
-- Clean separation of concerns
+    # Relationships
+    sessions: List[Session]  # User's sessions
+    jobs: List[PPTJob]       # User's presentations
+```
+
+**Purpose:** Store user account information securely
 
 ---
 
-### 4. Theme Server (4 tools)
-**Location:** `mcp/servers/4.theme_server.py`
+#### 2. Session Model
 
-| Tool | Purpose | Example |
-|------|---------|---------|
-| `apply_theme` | Apply preset theme | `apply_theme(theme_name="ocean")` |
-| `set_color_scheme` | Custom colors | `set_color_scheme(primary="#0077B6", secondary="#8CC7E0", text="#FFFFFF")` |
-| `set_font_style` | Change fonts | `set_font_style(font_name="modern", font_size=16)` |
-| `get_available_themes` | List themes | `get_available_themes()` returns all options |
+```python
+class Session(Base):
+    __tablename__ = "sessions"
 
-**Available Themes:**
-- `default` - Professional blue
-- `ocean` - Cool blue/teal
-- `forest` - Natural green
-- `sunset` - Warm orange
-- `midnight` - Dark blue
+    id: str              # UUID primary key
+    user_id: str         # Foreign key to User
+    token: str          # JWT token
+    created_at: datetime # Session start
+    expires_at: datetime # Token expiration (24h)
+
+    # Relationships
+    user: User          # Back-reference to user
+```
+
+**Purpose:** Track active sessions and JWT tokens
 
 ---
 
-## Error Handling
+#### 3. PPTJob Model
+
+```python
+class PPTJob(Base):
+    __tablename__ = "ppt_jobs"
+
+    id: str              # UUID primary key
+    user_id: str         # Foreign key to User (owns this job)
+    prompt: str         # User's original prompt
+    status: str         # pending, processing, completed, failed
+    file_path: str      # output/presentation_*.pptx
+    num_slides: int     # Number of slides created
+    error_message: str  # Error details if failed
+    created_at: datetime # Job creation time
+    started_at: datetime # Generation start
+    completed_at: datetime # Generation completion
+
+    # Relationships
+    user: User          # Back-reference to user
+```
+
+**Purpose:** Track presentation generation jobs
+
+---
+
+## 🛡️ Error Handling
 
 ### Retry Logic
 
+When calling MCP servers, the agent retries on failure:
+
 ```
-When calling MCP server:
-  Try 1: Call tool
-    └─ Success? Return result
-    └─ Timeout/Fail? → Wait 1 second
+Attempt 1: Call tool
+  ├─ Success? → Return result
+  └─ Fail? → Wait 1 second
 
-  Try 2: Call tool again
-    └─ Success? Return result
-    └─ Timeout/Fail? → Wait 2 seconds
+Attempt 2: Call tool again
+  ├─ Success? → Return result
+  └─ Fail? → Wait 2 seconds
 
-  Try 3: Call tool one more time
-    └─ Success? Return result
-    └─ Timeout/Fail? → Return error
+Attempt 3: Final attempt
+  ├─ Success? → Return result
+  └─ Fail? → Return error to user
 ```
 
 **Configuration:**
 - Max retries: 3
+- Initial backoff: 1 second
+- Max backoff: 2 seconds
 - Timeout per call: 30 seconds
-- Backoff: 1-2 seconds
-
-**Code Location:** `mcp_client.py` line ~80-150
 
 ---
 
 ### Graceful Degradation
 
+The agent gracefully handles failures at each phase:
+
 ```
-Scenario: Web Search Fails
-  User: "Create presentation on AI"
+Scenario 1: Web Search Fails
+  ├─ User: "Create presentation on AI"
+  ├─ Agent tries web search
+  ├─ Web search times out
+  ├─ Agent continues with planned content
+  └─ Result: SUCCESS (with planned bullets)
 
-  Agent tries:
-    1. Search web for "AI"
-    2. Web search fails (timeout/error)
-    3. Continue with PLANNED content
-    4. Result: Presentation still created
+Scenario 2: Single Slide Fails
+  ├─ Building 5 slides...
+  ├─ Slide 3 fails
+  ├─ Agent logs error and continues
+  └─ Result: 4 good slides + 1 placeholder
 
-  Outcome: SUCCESS (with planned bullets instead of search results)
+Scenario 3: Theme Fails (non-critical)
+  ├─ All slides created successfully
+  ├─ Theme application fails
+  ├─ Agent continues without theme
+  └─ Result: SUCCESS (unthemed presentation)
 
----
-
-Scenario: One Slide Fails
-  Building 5 slides...
-  Slide 3 fails to add content
-  Agent logs error and continues
-  Result: 4 good slides + 1 placeholder
-
-  Outcome: PARTIAL SUCCESS (better than nothing)
-
----
-
-Scenario: Theme Application Fails
-  All slides created successfully
-  Theme application fails
-  Agent continues without theme
-
-  Outcome: SUCCESS (plain theme, not styled)
-
----
-
-Scenario: File Save Fails
-  Everything done, but save fails
-  Agent returns error
-
-  Outcome: FAILURE (but logs what was completed)
-```
-
-**Error Messages to User:**
-```json
-{
-  "status": "error",
-  "message": "Failed to create presentation: [specific reason]"
-}
+Scenario 4: File Save Fails (critical)
+  ├─ All slides created and themed
+  ├─ Save operation fails
+  └─ Result: FAILURE (data lost)
 ```
 
 ---
 
-## Troubleshooting
+## 🚀 Deployment
+
+### Production Deployment
+
+#### Pre-deployment Checklist
+
+**Security:**
+- [ ] Change SECRET_KEY to random value
+  ```bash
+  openssl rand -hex 32
+  ```
+- [ ] Set DEBUG=False
+- [ ] Enable HTTPS/TLS
+- [ ] Use environment variables for secrets
+- [ ] Configure CORS for specific origins
+
+**Database:**
+- [ ] Migrate to PostgreSQL
+  ```bash
+  DATABASE_URL=postgresql://user:password@host/dbname
+  ```
+- [ ] Configure connection pooling
+- [ ] Set up automated backups
+- [ ] Test backup restoration
+
+**Deployment:**
+- [ ] Use production ASGI server (Gunicorn)
+- [ ] Set up process manager (systemd, supervisor)
+- [ ] Configure logging
+- [ ] Set up monitoring & alerting
+
+---
+
+### Docker Deployment
+
+**Dockerfile:**
+```dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+EXPOSE 8000
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+**Build & Run:**
+```bash
+docker build -t slideforge-agent .
+docker run -p 8000:8000 \
+  -e DATABASE_URL=postgresql://... \
+  -e SECRET_KEY=... \
+  slideforge-agent
+```
+
+---
+
+### Kubernetes Deployment
+
+**K8s Manifest (deployment.yaml):**
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: slideforge-agent
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: slideforge-agent
+  template:
+    metadata:
+      labels:
+        app: slideforge-agent
+    spec:
+      containers:
+      - name: agent
+        image: slideforge-agent:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: url
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: api-secrets
+              key: secret-key
+```
+
+---
+
+## 🐛 Troubleshooting
 
 ### Error: "ModuleNotFoundError: No module named 'fastapi'"
 
@@ -759,14 +931,29 @@ pip install -r requirements.txt
 
 ---
 
-### Error: "No presentation created"
+### Error: "Database locked"
 
-**Cause:** MCP PPT Server not accessible
+**Cause:** SQLite conflict with concurrent writes
 
 **Solution:**
-1. Verify file exists: `ls mcp/servers/1.ppt_server.py`
-2. Check python-pptx installed: `pip install python-pptx`
-3. Try running server manually: `python mcp/servers/1.ppt_server.py`
+- Development: Restart server
+- Production: Use PostgreSQL
+  ```bash
+  DATABASE_URL=postgresql://user:pass@localhost/dbname
+  ```
+
+---
+
+### Error: "MCP server not responding"
+
+**Solution:**
+```bash
+# Check if MCP servers started
+ps aux | grep python | grep ppt_server
+
+# Run server manually to see errors
+python ../mcp/servers/1.ppt_server.py
+```
 
 ---
 
@@ -774,125 +961,54 @@ pip install -r requirements.txt
 
 **Cause:** JWT token exceeded 24-hour validity
 
-**Solution:**
-```bash
-# Login again to get fresh token
-curl -X POST "http://localhost:8000/login" ...
-```
+**Solution:** User must login again to get new token
 
 ---
 
-### Error: "Database locked"
-
-**Cause:** SQLite file being accessed by multiple writers
-
-**Solution:**
-- Development: Restart server
-- Production: Use PostgreSQL instead
-
----
-
-### Error: "File not found on download"
-
-**Cause:** File deleted or wrong filename
-
-**Solution:**
-```bash
-# Check job history
-curl -X GET "http://localhost:8000/jobs" -H "Authorization: Bearer $TOKEN"
-
-# Find correct filename
-```
-
----
-
-### Slow Presentation Creation
+### Slow Presentation Generation
 
 **Expected Timeline (5 slides):**
 ```
-Planning:     1-2s
-Creating:     <1s
-Building:     3-5s (web search adds 1-2s)
-Theming:      1s
-Saving:       1s
+Planning:     1-2s (agent reasoning)
+Creating:     <1s  (initialize file)
+Building:     3-5s (add slides + web search)
+Theming:      1s   (apply styling)
+Saving:       <1s  (write to disk)
+─────────────────
 Total:        8-12s
 ```
 
-If slower: Check internet connection (web search may be slow)
+**If slower:** Check internet connection (web search may be bottleneck)
 
 ---
 
-## Assignment Requirements
+## 📚 File Reference
 
-This implementation fully satisfies all assignment requirements:
+### Core Files
 
-| Requirement | Status | Evidence |
-|-------------|--------|----------|
-| **Agentic Loop** | ✓ COMPLETE | 5-phase PLAN->EXECUTE->SAVE in `agent_engine.py` |
-| **Explicit Planning** | ✓ COMPLETE | Phase 1 plans all slides before execution (line ~80-120) |
-| **MCP Integration** | ✓ COMPLETE | 4 servers with 16 tools, all used (see `mcp_client.py`) |
-| **Content Generation** | ✓ COMPLETE | Each slide: title + 3-5 bullets (line ~150) |
-| **Valid .pptx Output** | ✓ COMPLETE | Saves functioning .pptx using python-pptx (line ~170-175) |
-| **Error Handling** | ✓ COMPLETE | Graceful fallback, retry logic, partial results (line ~160-165) |
-| **User Authentication** | ✓ COMPLETE | JWT + bcrypt in `auth.py` and `main.py` |
-| **Robustness** | ✓ COMPLETE | Handles vague prompts, missing data, server failures |
-
----
-
-## Support & Debugging
-
-### Enable Debug Logging
-```bash
-# In .env
-DEBUG=True
-
-# In terminal
-python main.py
-```
-
-You'll see detailed logs for each phase.
-
-### Check Database
-```bash
-# View SQLite database
-sqlite3 ppt_agent.db
-
-# List tables
-.tables
-
-# Check users
-SELECT * FROM users;
-
-# Check jobs
-SELECT * FROM ppt_jobs;
-```
+| File | Purpose |
+|------|---------|
+| `main.py` | FastAPI application & routes |
+| `agent_engine.py` | 5-phase agentic loop logic |
+| `mcp_client.py` | MCP server communication |
+| `models.py` | SQLAlchemy database models |
+| `auth.py` | JWT & password utilities |
+| `config.py` | Configuration loading |
+| `db.py` | Database operations |
 
 ---
 
-## Next Steps
+## 📞 Support
 
-1. **Test locally:**
-   ```bash
-   python main.py
-   # Visit http://localhost:8000/docs
-   ```
+For issues or questions:
 
-2. **Create your first presentation:**
-   - Register account
-   - Login
-   - Create PPT with prompt
-   - Download file
-
-3. **Deploy to production:**
-   - Change SECRET_KEY
-   - Use PostgreSQL
-   - Set DEBUG=False
-   - Enable HTTPS
+1. Check [Troubleshooting](#troubleshooting) section
+2. Review application logs: `DEBUG=True python main.py`
+3. Check database: `sqlite3 ppt_agent.db`
+4. Review [Root README](../README.md) for system overview
 
 ---
 
-**Ready to generate presentations!** 🚀
+**Ready to generate amazing presentations!** 🚀
 
-For more details, see:
-- `AGENT_LOOP_DESIGN.md` - Deep dive into agentic loop
-- `../mcp/mcp_servers_README.md` - MCP server documentation
+See [Frontend README](../frontend/README.md) for client-side documentation.

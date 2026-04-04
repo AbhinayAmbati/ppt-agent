@@ -4,20 +4,6 @@
 
 **Status:** Production Ready | **Version:** 1.0.0 | **Framework:** FastAPI + Python
 
----
-
-## 📋 Table of Contents
-
-1. [What is the Agent?](#what-is-the-agent)
-2. [Quick Start](#quick-start)
-3. [Configuration](#configuration)
-4. [The 5-Phase Agentic Loop](#the-5-phase-agentic-loop)
-5. [API Endpoints](#api-endpoints)
-6. [MCP Servers](#mcp-servers)
-7. [Database Models](#database-models)
-8. [Error Handling](#error-handling)
-9. [Deployment](#deployment)
-10. [Troubleshooting](#troubleshooting)
 
 ---
 

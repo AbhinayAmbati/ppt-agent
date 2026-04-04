@@ -4,24 +4,6 @@
 
 **Status:** Production Ready | **Version:** 1.0.0 | **Framework:** Next.js 16 + React 19 and Shadcn/ui
 
----
-
-## 📋 Table of Contents
-
-1. [Overview](#overview)
-2. [Features](#features)
-3. [Quick Start](#quick-start)
-4. [Project Structure](#project-structure)
-5. [Installation](#installation)
-6. [Configuration](#configuration)
-7. [Running the Application](#running-the-application)
-8. [Component Architecture](#component-architecture)
-9. [Authentication Flow](#authentication-flow)
-10. [API Integration](#api-integration)
-11. [Styling & Theming](#styling--theming)
-12. [Development](#development)
-13. [Deployment](#deployment)
-14. [Troubleshooting](#troubleshooting)
 
 ---
 

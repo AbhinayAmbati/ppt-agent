@@ -4,20 +4,6 @@
 
 **Status:** Production Ready | **Version:** 1.0.0 | **Servers:** 4 | **Tools:** 16
 
----
-
-## 📋 Table of Contents
-
-1. [Overview](#overview)
-2. [Why MCP Architecture?](#why-mcp-architecture)
-3. [Quick Start](#quick-start)
-4. [Server Architecture](#server-architecture)
-5. [Server Documentation](#server-documentation)
-6. [Tool Reference](#tool-reference)
-7. [Communication Protocol](#communication-protocol)
-8. [Error Handling](#error-handling)
-9. [Deployment](#deployment)
-10. [Troubleshooting](#troubleshooting)
 
 ---
 

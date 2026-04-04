@@ -6,22 +6,6 @@
 
 ---
 
-## 📋 Table of Contents
-
-1. [What is SlideForage?](#what-is-slideforge)
-2. [Quick Demo](#quick-demo)
-3. [Architecture Overview](#architecture-overview)
-4. [Project Structure](#project-structure)
-5. [Quick Start](#quick-start)
-6. [System Components](#system-components)
-7. [Key Features](#key-features)
-8. [Technology Stack](#technology-stack)
-9. [Deployment](#deployment)
-10. [Development](#development)
-11. [Troubleshooting](#troubleshooting)
-
----
-
 ## 🎯 What is SlideForage?
 
 SlideForage is a complete AI-driven presentation generation system that transforms simple text prompts into fully formatted, styled PowerPoint presentations. The system intelligently plans, builds, and delivers presentations without manual intervention.

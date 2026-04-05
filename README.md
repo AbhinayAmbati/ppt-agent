@@ -1,4 +1,4 @@
-# 🎨 SlideForage - AI-Powered Presentation Generation System
+# SlideForage - AI-Powered Presentation Generation System
 
 > Intelligent full-stack platform that autonomously creates professional PowerPoint presentations from natural language prompts using an agentic architecture with Model Context Protocol (MCP) integration.
 
@@ -6,7 +6,7 @@
 
 ---
 
-## 🎯 What is SlideForage?
+## What is SlideForage?
 
 SlideForage is a complete AI-driven presentation generation system that transforms simple text prompts into fully formatted, styled PowerPoint presentations. The system intelligently plans, builds, and delivers presentations without manual intervention.
 
@@ -84,8 +84,8 @@ User can:
 ┌─────────────────────────────────────────────────────────────┐
 │              FRONTEND (Next.js + React)                     │
 │  • Landing Page      • Auth (login/register)                │
-│  • Dashboard         • Job History          • Settings       │
-│  • Download Files    • Real-time Status Updates              │
+│  • Dashboard         • Job History          • Settings      │
+│  • Download Files    • Real-time Status Updates             │
 └────────────────────────┬────────────────────────────────────┘
                          │ HTTP/REST (Port 3000)
                          ↓
